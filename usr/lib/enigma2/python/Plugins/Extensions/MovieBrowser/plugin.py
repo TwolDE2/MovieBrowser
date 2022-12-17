@@ -7844,8 +7844,8 @@ class UpdateDatabase():
                 self.getTVDbData(url, '0')
             else:
                 movie = transMOVIE(self.name)
-                movie = sub('\\+[1-2][0-9][0-9][0-9]', '', movie)
-                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (tmdb_api_key, movie, self.language)
+                # movie = sub('\\+[1-2][0-9][0-9][0-9]', '', movie)
+                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (str(tmdb_api_key), movie, self.language)
                 self.getTMDbData(url, '0', False)
         return
 
@@ -8627,21 +8627,12 @@ class movieControlList(Screen):
     def showInfo(self):
         if self.ready is True:
             loglist = [
-<<<<<<< HEAD
-                (_('Movie File Informations', 'info')),
-                (_('Delete Movie File', 'delete')),
-                (_('Blacklist Movie File', 'blacklist')),
-                (_('Database Update Log', 'update')),
-                (_('Database Timer Log', 'timer')),
-                (_('Cleanup Cache Folder Log', 'cleanup'))
-=======
                 (_('Movie File Informations'), 'info'),
                 (_('Delete Movie File'), 'delete'),
                 (_('Blacklist Movie File'), 'blacklist'),
                 (_('Database Update Log'), 'update'),
                 (_('Database Timer Log'), 'timer'),
                 (_('Cleanup Cache Folder Log'), 'cleanup')
->>>>>>> a5839ca... Fix Locale
             ]
             self.session.openWithCallback(self.choiceLog, ChoiceBox, title='Movie Browser', list=loglist)
 
