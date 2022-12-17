@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: latin-1 -*-
+# -*- coding: utf-8 -*-
 
 # 20221004 Kiddac edit: python 3 support et al
 # 20221204 Lululla edit & add: language, config, major fix
@@ -231,7 +231,6 @@ config.plugins.moviebrowser.api = NoSave(ConfigSelection(['-> Ok']))
 config.plugins.moviebrowser.txtapi = ConfigText(default=tmdb_api_key, visible_width=60, fixed_size=False)
 config.plugins.moviebrowser.tvdbapi = NoSave(ConfigSelection(['-> Ok']))
 config.plugins.moviebrowser.txttvdbapi = ConfigText(default=thetvdb_api_key, visible_width=60, fixed_size=False)
-
 config.plugins.moviebrowser.moviefolder = ConfigSelection(choices=choices, default=getMountDefault(choices))
 config.plugins.moviebrowser.cachefolder = ConfigSelection(default=dbcache, choices=[(dbcache, 'Default'), (dbhddcache, '/media/hdd'), (dbusbcache, '/media/usb')])
 config.plugins.moviebrowser.cleanup = ConfigYesNo(default=False)  # ConfigSelection(default='no', choices=[('no', 'NO'), ('yes', '<Cleanup>')])
@@ -8628,12 +8627,21 @@ class movieControlList(Screen):
     def showInfo(self):
         if self.ready is True:
             loglist = [
+<<<<<<< HEAD
                 (_('Movie File Informations', 'info')),
                 (_('Delete Movie File', 'delete')),
                 (_('Blacklist Movie File', 'blacklist')),
                 (_('Database Update Log', 'update')),
                 (_('Database Timer Log', 'timer')),
                 (_('Cleanup Cache Folder Log', 'cleanup'))
+=======
+                (_('Movie File Informations'), 'info'),
+                (_('Delete Movie File'), 'delete'),
+                (_('Blacklist Movie File'), 'blacklist'),
+                (_('Database Update Log'), 'update'),
+                (_('Database Timer Log'), 'timer'),
+                (_('Cleanup Cache Folder Log'), 'cleanup')
+>>>>>>> a5839ca... Fix Locale
             ]
             self.session.openWithCallback(self.choiceLog, ChoiceBox, title='Movie Browser', list=loglist)
 
