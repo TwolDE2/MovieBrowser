@@ -16,7 +16,7 @@ import sys
 from enigma import eConsoleAppContainer, eListboxPythonMultiContent, ePoint, eServiceReference, eTimer, getDesktop, gFont, gPixmapPtr, iPlayableService, iServiceInformation, loadPNG, RT_HALIGN_LEFT, RT_HALIGN_CENTER, RT_VALIGN_CENTER, RT_WRAP
 
 from Components.ActionMap import ActionMap
-from Components.config import config, configfile, ConfigClock, ConfigEnableDisable, getConfigListEntry, ConfigOnOff, ConfigSubsection, ConfigSelection, ConfigText, ConfigYesNo, NoSave
+from Components.config import config, configfile, ConfigClock, ConfigDirectory, ConfigEnableDisable, getConfigListEntry, ConfigOnOff, ConfigSubsection, ConfigSelection, ConfigText, ConfigYesNo, NoSave
 from Components.ConfigList import ConfigListScreen
 from Components.FileList import FileList
 from Components.Harddisk import harddiskmanager
@@ -7970,10 +7970,7 @@ class UpdateDatabase():
             actor5 = findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
             actor6 = findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
             actor7 = findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
-            director = findall('"name":"(.*?)", "department":"Directing","job":"Director"', output)
-            if director == " ":
-                director = findall('"job":"Director", "name":"(.*?)"', output)           
-#            print("[Moviebrowser][UpdateDatabase]1 getTMDbData2 director", director)            
+            director = re.findall('"known_for_department":"Writing","name":"(.*?)"', output)
             res = []
             try:
                 res.append(runtime[0] + ' min')
@@ -10626,7 +10623,7 @@ class helpScreen(Screen):
 
         Screen.__init__(self, session)
         self.setTitle(_('Movie Browser Key Assignment'))
-        self['label'] = Label(_('Update Database\nWikipedia Search\nToggle Plugin Style\nToggle hide/show plugin\nInfo Button: Toggle show/hide infos\nVideo Button: Update Database\nText Button: Edit Database\nStop Button: Mark movie as seen\nRadio Button: Delete/Blacklist movie\n<- -> Button: Go to first letter\nButton 1: CutListEditor/MovieCut/LogView\nButton 2: Renew infos on TMDb\nButton 3: Renew infos on TheTVDb\nButton 4: Hide/show seen movies\nButton 5: Toggle Movies/Series view\nButton 6: Movie Folder Selection\nButton 7: Movie Director Selection\nButton 8: Movie Actor Selection\nButton 9: Movie Genre Selection\nButton 0: Go to end of list'))
+        self['label'] = Label(_('Update Database\nHelp\nToggle Plugin Style\nToggle hide/show plugin\nInfo Button: Toggle show/hide infos\nVideo Button: Update Database\nText Button: Edit Database\nStop Button: Mark movie as seen\nRadio Button: Delete/Blacklist movie\n<- -> Button: Go to first letter\nButton 1: CutListEditor/MovieCut/LogView\nButton 2: Renew infos on TMDb\nButton 3: Renew infos on TheTVDb\nButton 4: Hide/show seen movies\nButton 5: Toggle Movies/Series view\nButton 6: Movie Folder Selection\nButton 7: Movie Director Selection\nButton 8: Movie Actor Selection\nButton 9: Movie Genre Selection\nButton 0: Go to end of list'))
         self['actions'] = ActionMap(['OkCancelActions'], {
             'ok': self.close,
             'cancel': self.close
