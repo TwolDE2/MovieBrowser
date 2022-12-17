@@ -6,25 +6,28 @@
 # 2022 Twol add ......callInThread ....getMountDefault
 from __future__ import print_function
 from . import _
+import datetime
+import os
+from os import statvfs
+import math
+from re import findall, search, sub, S as reS 
+import sys
+
+from enigma import eConsoleAppContainer, eListboxPythonMultiContent, ePoint, eServiceReference, eTimer, getDesktop, gFont, gPixmapPtr, iPlayableService, iServiceInformation, loadPNG, RT_HALIGN_LEFT, RT_HALIGN_CENTER, RT_VALIGN_CENTER, RT_WRAP
+
 from Components.ActionMap import ActionMap
+from Components.config import config, configfile, ConfigClock, ConfigEnableDisable, getConfigListEntry, ConfigOnOff, ConfigSubsection, ConfigSelection, ConfigText, ConfigYesNo, NoSave
 from Components.ConfigList import ConfigListScreen
-# from Components.FileList import FileList
+from Components.FileList import FileList
 from Components.Harddisk import harddiskmanager
 from Components.Label import Label
 from Components.Language import language
 from Components.MenuList import MenuList
-from Components.MultiContent import MultiContentEntryPixmapAlphaTest
-from Components.MultiContent import MultiContentEntryText
+from Components.MultiContent import MultiContentEntryText, MultiContentEntryPixmapAlphaTest
 from Components.Pixmap import Pixmap, MultiPixmap
 from Components.ProgressBar import ProgressBar
 from Components.ScrollLabel import ScrollLabel
 from Components.ServiceEventTracker import ServiceEventTracker
-from Components.config import ConfigSelection, ConfigText, ConfigYesNo
-# from Components.config import ConfigDirectory
-from Components.config import ConfigEnableDisable
-from Components.config import ConfigSubsection, ConfigOnOff
-from Components.config import config, configfile, ConfigClock
-from Components.config import NoSave, getConfigListEntry
 from Components.Sources.StaticText import StaticText
 from Plugins.Plugin import PluginDescriptor
 from Screens.ChannelSelection import ChannelSelection
@@ -34,41 +37,13 @@ from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen
 from Screens.Standby import TryQuitMainloop
 from Screens.VirtualKeyBoard import VirtualKeyBoard
+from Tools.BoundFunction import boundFunction
 from Tools.Directories import fileExists
-from enigma import RT_HALIGN_CENTER, RT_VALIGN_CENTER
-from enigma import RT_HALIGN_LEFT
-# from enigma import RT_WRAP
-from enigma import eConsoleAppContainer
-from enigma import eListboxPythonMultiContent, ePoint
-from enigma import eServiceReference, eTimer
-from enigma import getDesktop, gFont, iPlayableService
-from enigma import iServiceInformation, loadPNG  # , loadPic
+
+from urllib.request import urlopen, Request
 from requests import get
-# from requests import exceptions
 from requests.exceptions import HTTPError
 from twisted.internet.reactor import callInThread
-# from twisted.web.client import getPage, downloadPage
-import datetime
-import os
-import re
-from re import search
-from re import sub
-import sys
-import math
-#
-# from enigma import gPixmapPtr
-# from Components.AVSwitch import AVSwitch
-# from enigma import ePicLoad
-
-try:
-    from urllib2 import Request, urlopen
-except:
-    from urllib.request import urlopen, Request
-
-try:
-    import statvfs
-except:
-    from os import statvfs
 
 
 def getDesktopSize():
@@ -598,7 +573,7 @@ class movieBrowserMetrix(Screen):
             self.openTimer = eTimer()
             self.openTimer.callback.append(self.openInfo)
             self.openTimer.start(500, True)
-        return
+
 
     def openInfo(self):
         if fileExists(dbreset):
@@ -655,26 +630,23 @@ class movieBrowserMetrix(Screen):
                         content = 'Movie:Top'
                         media = '\n'
                         movieline = line.split(':::')
-                        try:
-                            name = movieline[0]
-                            name = sub('[Ss][0]+[Ee]', 'Special ', name)
-                            filename = movieline[1]
-                            date = movieline[2]
-                            runtime = movieline[3]
-                            rating = movieline[4]
-                            director = movieline[5]
-                            actors = movieline[6]
-                            genres = movieline[7]
-                            year = movieline[8]
-                            country = movieline[9]
-                            plotfull = movieline[10]
-                            poster = movieline[11]
-                            backdrop = movieline[12]
-                            content = movieline[13]
-                            seen = movieline[14]
-                            media = movieline[15]
-                        except IndexError:
-                            pass
+                        name = movieline[0]
+                        name = sub('[Ss][0]+[Ee]', 'Special ', name)
+                        filename = movieline[1]
+                        date = movieline[2]
+                        runtime = movieline[3]
+                        rating = movieline[4]
+                        director = movieline[5]
+                        actors = movieline[6]
+                        genres = movieline[7]
+                        year = movieline[8]
+                        country = movieline[9]
+                        plotfull = movieline[10]
+                        poster = movieline[11]
+                        backdrop = movieline[12]
+                        content = movieline[13]
+                        seen = movieline[14]
+                        media = movieline[15]
                         self.namelist.append(name)
                         self.movielist.append(filename)
                         if '3d' in filename.lower():
@@ -729,7 +701,7 @@ class movieBrowserMetrix(Screen):
                 else:
                     self.showDefaultBackdrop()
                 self.ready = True
-        return
+
 
     def makeList(self):
         f = open(self.database, 'r')
@@ -828,12 +800,8 @@ class movieBrowserMetrix(Screen):
         episodes = _('EPISODES')
         if os.path.exists(config.plugins.moviebrowser.moviefolder.value):
             movieFolder = os.statvfs(config.plugins.moviebrowser.moviefolder.value)
-            try:
-                stat = movieFolder
-                freeSize = convert_size(float(stat.f_bfree * stat.f_bsize))
-            except Exception as e:
-                print(e)
-                freeSize = "-?-"
+            stat = movieFolder
+            freeSize = convert_size(float(stat.f_bfree * stat.f_bsize))
 
             if self.content == ':::Movie:Top:::':
                 titel = '%s %s' % (str(self.totalMovies), movies)
@@ -1160,9 +1128,10 @@ class movieBrowserMetrix(Screen):
             f.write(database)
             f.close()
             os.rename(self.database + '.new', self.database)
-        return
-
+ 
     def renewTMDb(self):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if self.ready is True:
             try:
                 content = self.contentlist[self.index]
@@ -1174,47 +1143,45 @@ class movieBrowserMetrix(Screen):
                 self.name = name
                 name = transMOVIE(name)
                 name = sub('\\+[1-2][0-9][0-9][0-9]', '', name)
-                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (str(tmdb_api_key), name, self.language)
+                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (tmdb_api_key, name, self.language)
                 self.getTMDbMovies(url)
             except IndexError:
                 pass
 
     def getTMDbMovies(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
+        print("[MovieBrowser][getTMDbMovies] entered url ", url)        
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
-            output = sub('"poster_path":"', '"poster_path":"https://image.tmdb.org/t/p/w154', output)
-            output = sub('"poster_path":null', '"poster_path":"https://www.themoviedb.org/images/apps/moviebase.png"', output)
-            rating = re.findall('"vote_average":(.*?),', output)
-            year = re.findall('"release_date":"(.*?)"', output)
-            titles = re.findall('"title":"(.*?)"', output)
-            poster = re.findall('"poster_path":"(.*?)"', output)
-            id = re.findall('"id":(.*?),', output)
-            country = re.findall('"backdrop(.*?)_path"', output)
-            titel = _('TMDb Results')
-            if not titles:
-                self.session.open(MessageBox, _('\nNo TMDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
-            else:
-                self.session.openWithCallback(self.makeTMDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, True, False)
-        except Exception as e:
-            print('error get ', str(e))
+        output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
+        output = sub('"poster_path":"', '"poster_path":"https://image.tmdb.org/t/p/w154', output)
+        output = sub('"poster_path":null', '"poster_path":"https://www.themoviedb.org/images/apps/moviebase.png"', output)
+        rating = findall('"vote_average":(.*?),', output)
+        year = findall('"release_date":"(.*?)"', output)
+        titles = findall('"title":"(.*?)"', output)
+        poster = findall('"poster_path":"(.*?)"', output)
+        id = findall('"id":(.*?),', output)
+        country = findall('"backdrop(.*?)_path"', output)
+        titel = _('TMDb Results')
+        if not titles:
+            self.session.open(MessageBox, _('\nNo TMDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+        else:
+            self.session.openWithCallback(self.makeTMDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, True, False)
 
     def makeTMDbUpdate(self, new, select):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
+        print("[MovieBrowser][makeTMDbUpdate] entered new , select ", new, "   ", select)    
         if new is not None:
             if select == 'movie':
                 movie = self.movielist[self.index]
                 date = self.datelist[self.index]
-                url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (new + self.language, str(tmdb_api_key))
+                url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (new + self.language, tmdb_api_key)
                 UpdateDatabase(True, self.name, movie, date).getTMDbData(url, new, True)
             elif select == 'poster':
                 poster = self.posterlist[self.index]
@@ -1254,129 +1221,120 @@ class movieBrowserMetrix(Screen):
                 pass
 
     def getTVDbMovies(self, url):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
+        print("[MovieBrowser][renewTVDb] entered url", url)
+      
+        rating = []
+        year = []
+        titles = []
+        poster = []
+        id = []
+        country = []
+        agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
+        request = Request(url, headers=agents)
         try:
-            rating = []
-            year = []
-            titles = []
-            poster = []
-            id = []
-            country = []
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nTheTVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
+
+        output = output.replace('&amp;', '&')
+        seriesid = findall('<seriesid>(.*?)</seriesid>', output)
+        for x in range(len(seriesid)):
+            url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", seriesid[x], config.plugins.moviebrowser.language.value) + ".xml"        
             agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
             request = Request(url, headers=agents)
             try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
+                output = urlopen(request, timeout=10).read().decode('utf-8')
             except Exception:
-                self.session.open(MessageBox, _('\nTheTVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+                output = ''
 
-            output = output.replace('&amp;', '&')
-            seriesid = re.findall('<seriesid>(.*?)</seriesid>', output)
-            for x in range(len(seriesid)):
-                url = ('https://www.thetvdb.com/api/%s/series/' + seriesid[x] + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
-                agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
-                request = Request(url, headers=agents)
+            output = sub('<poster>', '<poster>https://artworks.thetvdb.com/banners/_cache/', output)
+            output = sub('<poster>https://artworks.thetvdb.com/banners/_cache/</poster>', '<poster>https://www.thetvdb.com/wiki/skins/common/images/wiki.png</poster>', output)
+            output = sub('<Rating></Rating>', '<Rating>0.0</Rating>', output)
+            output = sub('&amp;', '&', output)
+            Rating = findall('<Rating>(.*?)</Rating>', output)
+            Year = findall('<FirstAired>([0-9]+)-', output)
+            Added = findall('<added>([0-9]+)-', output)
+            Titles = findall('<SeriesName>(.*?)</SeriesName>', output)
+            Poster = findall('<poster>(.*?)</poster>', output)
+            TVDbid = findall('<id>(.*?)</id>', output)
+            Country = findall('<Status>(.*?)</Status>', output)
+            try:
+                rating.append(Rating[0])
+            except IndexError:
+                rating.append('0.0')
+
+            try:
+                year.append(Year[0])
+            except IndexError:
                 try:
-                    if pythonVer == 2:
-                        output = urlopen(request, timeout=10).read()
-                    else:
-                        output = urlopen(request, timeout=10).read().decode('utf-8')
-
-                except Exception:
-                    output = ''
-
-                output = sub('<poster>', '<poster>https://artworks.thetvdb.com/banners/_cache/', output)
-                output = sub('<poster>https://artworks.thetvdb.com/banners/_cache/</poster>', '<poster>' + wiki_png + '</poster>', output)
-                output = sub('<Rating></Rating>', '<Rating>0.0</Rating>', output)
-                output = sub('&amp;', '&', output)
-                Rating = re.findall('<Rating>(.*?)</Rating>', output)
-                Year = re.findall('<FirstAired>([0-9]+)-', output)
-                Added = re.findall('<added>([0-9]+)-', output)
-                Titles = re.findall('<SeriesName>(.*?)</SeriesName>', output)
-                Poster = re.findall('<poster>(.*?)</poster>', output)
-                TVDbid = re.findall('<id>(.*?)</id>', output)
-                Country = re.findall('<Status>(.*?)</Status>', output)
-                try:
-                    rating.append(Rating[0])
+                    year.append(Added[0])
                 except IndexError:
-                    rating.append('0.0')
+                    year.append(' ')
 
-                try:
-                    year.append(Year[0])
-                except IndexError:
-                    try:
-                        year.append(Added[0])
-                    except IndexError:
-                        year.append(' ')
+            try:
+                titles.append(Titles[0])
+            except IndexError:
+                titles.append(' ')
 
-                try:
-                    titles.append(Titles[0])
-                except IndexError:
-                    titles.append(' ')
+            try:
+                poster.append(Poster[0])
+            except IndexError:
+                poster.append(wiki_png)
 
-                try:
-                    poster.append(Poster[0])
-                except IndexError:
-                    poster.append(wiki_png)
+            try:
+                id.append(TVDbid[0])
+            except IndexError:
+                id.append('0')
 
-                try:
-                    id.append(TVDbid[0])
-                except IndexError:
-                    id.append('0')
-
-                try:
-                    country.append(Country[0])
-                except IndexError:
-                    country.append(' ')
-            titel = _('TheTVDb Results')
-            if not titles:
-                self.session.open(MessageBox, _('\nNo TheTVDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+            try:
+                country.append(Country[0])
+            except IndexError:
+                country.append(' ')
+        titel = _('TheTVDb Results')
+        if not titles:
+            self.session.open(MessageBox, _('\nNo TheTVDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+        else:
+            content = self.contentlist[self.index]
+            if content == 'Series:Top':
+                self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, True)
             else:
-                content = self.contentlist[self.index]
-                if content == 'Series:Top':
-                    self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, True)
-                else:
-                    self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, False)
-        except Exception as e:
-            print('error get ', str(e))
-
+                self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, False)
+ 
     def makeTVDbUpdate(self, new, select):
-        try:
-            if new is not None:
-                if select == 'series':
-                    movie = self.movielist[self.index]
-                    date = self.datelist[self.index]
-                    url = ('https://www.thetvdb.com/api/%s/series/' + new + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
-                    UpdateDatabase(True, self.name, movie, date).getTVDbData(url, new)
-                elif select == 'banner':
-                    banner = self.posterlist[self.index].split('<episode>')
-                    try:
-                        banner = banner[1]
-                    except IndexError:
-                        return
+        if new is not None:
+            if select == 'series':
+                movie = self.movielist[self.index]
+                date = self.datelist[self.index]
+                url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", new, config.plugins.moviebrowser.language.value) + ".xml"                
+#               url = ('https://www.thetvdb.com/api/%s/series/' + new + '/' + config.plugins.moviebrowser.language.value + '.xml') % thetvdb_api_key
+                UpdateDatabase(True, self.name, movie, date).getTVDbData(url, new)
+            elif select == 'banner':
+                banner = self.posterlist[self.index].split('<episode>')
+                try:
+                    banner = banner[1]
+                except IndexError:
+                    return
 
-                    bannernew = new
-                    database = open(self.database).read()
-                    database = database.replace(banner, bannernew)
-                    f = open(self.database + '.new', 'w')
-                    f.write(database)
-                    f.close()
-                    os.rename(self.database + '.new', self.database)
-                elif select == 'backdrop':
-                    backdrop = self.backdroplist[self.index]
-                    backdropnew = new
-                    database = open(self.database).read()
-                    database = database.replace(backdrop, backdropnew)
-                    f = open(self.database + '.new', 'w')
-                    f.write(database)
-                    f.close()
-                    os.rename(self.database + '.new', self.database)
-                self.renewFinished()
-            return
-        except Exception as e:
-            print('error get ', str(e))
+                bannernew = new
+                database = open(self.database).read()
+                database = database.replace(banner, bannernew)
+                f = open(self.database + '.new', 'w')
+                f.write(database)
+                f.close()
+                os.rename(self.database + '.new', self.database)
+            elif select == 'backdrop':
+                backdrop = self.backdroplist[self.index]
+                backdropnew = new
+                database = open(self.database).read()
+                database = database.replace(backdrop, backdropnew)
+                f = open(self.database + '.new', 'w')
+                f.write(database)
+                f.close()
+                os.rename(self.database + '.new', self.database)
+            self.renewFinished()
 
     def renewFinished(self):
         self.topseries = False
@@ -1467,7 +1425,6 @@ class movieBrowserMetrix(Screen):
             self.ready = True
         else:
             self.blacklistMovie()
-        return
 
     def blacklistMovie(self):
         if self.ready is True and self.content != ':::Series:Top:::':
@@ -1514,7 +1471,6 @@ class movieBrowserMetrix(Screen):
                 pass
 
             self.ready = True
-        return
 
     def markSeen(self):
         if self.ready is True and self.content != ':::Series:Top:::':
@@ -1541,7 +1497,7 @@ class movieBrowserMetrix(Screen):
             f.close()
             os.rename(self.database + '.new', self.database)
             self.ready = True
-        return
+
 
     def seenEOF(self):
         if self.ready is True and self.content != ':::Series:Top:::':
@@ -1563,7 +1519,7 @@ class movieBrowserMetrix(Screen):
             f.close()
             os.rename(self.database + '.new', self.database)
             self.ready = True
-        return
+
 
     def toggleInfo(self):
         if self.ready is True:
@@ -1909,9 +1865,6 @@ class movieBrowserMetrix(Screen):
                     self["banner"].instance.setPixmapFromFile(banner)
                     self['banner'].show()
                 else:
-                    if pythonVer == 3:
-                        bannerurl = bannerurl.encode()
-                    # getPage(bannerurl).addCallback(self.getBanner, banner).addErrback(self.downloadError)
                     callInThread(threadGetPage, url=bannerurl, file=banner, success=self.getBanner, fail=self.downloadError)
             else:
                 self['banner'].hide()
@@ -1926,20 +1879,15 @@ class movieBrowserMetrix(Screen):
         self['videomode'].hide()
         self['videocodec'].hide()
         self['aspectratio'].hide()
-        return
+
 
     def getBanner(self, output, banner):
-        try:
-            f = open(banner, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(banner):
-                self["banner"].instance.setPixmapFromFile(banner)
-                self['banner'].show()
-                self['plotfull'].hide()
-        except Exception as e:
-            print('error ', str(e))
-            self['banner'].hide()
+        f = open(banner, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(banner):
+            self["banner"].instance.setPixmapFromFile(banner)
+            self['banner'].show()
         return
 
     def makeEPoster(self):
@@ -1954,26 +1902,18 @@ class movieBrowserMetrix(Screen):
                     self["eposter"].instance.setPixmapFromFile(eposter)
                     self['eposter'].show()
                 else:
-                    if pythonVer == 3:
-                        eposterurl = eposterurl.encode()
                     callInThread(threadGetPage, url=eposterurl, file=eposter, sucess=self.getEPoster, fail=self.downloadError)
         except IndexError:
             pass
 
-        return
 
     def getEPoster(self, output, eposter):
-        try:
-            f = open(eposter, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(eposter):
-                self["eposter"].instance.setPixmapFromFile(eposter)
-                self['eposter'].show()
-                self['plotfull'].hide()
-        except Exception as e:
-            print('error ', str(e))
-            self['eposter'].hide()
+        f = open(eposter, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(eposter):
+            self["eposter"].instance.setPixmapFromFile(eposter)
+            self['eposter'].show()
         return
 
     def makePoster(self, poster=None):
@@ -1987,26 +1927,19 @@ class movieBrowserMetrix(Screen):
                 self['poster'].show()
                 self['posterback'].show()
             else:
-                if pythonVer == 3:
-                    posterurl = posterurl.encode()
                 callInThread(threadGetPage, url=posterurl, file=poster, success=self.getPoster, fail=self.downloadError)
         except IndexError:
             self['posterback'].hide()
             self['poster'].hide()
-        return
+
 
     def getPoster(self, output, poster):
-        try:
-            f = open(poster, 'wb')
-            f.write(output)
-            f.close()
-            self["poster"].instance.setPixmapFromFile(poster)
-            self['poster'].show()
-            self['posterback'].show()
-        except Exception as e:
-            print('error ', str(e))
-            self['posterback'].hide()
-            self['poster'].hide()            
+        f = open(poster, 'wb')
+        f.write(output)
+        f.close()
+        self["poster"].instance.setPixmapFromFile(poster)
+        self['poster'].show()
+        self['posterback'].show()
         return
 
     def showBackdrops(self, index):
@@ -2026,8 +1959,6 @@ class movieBrowserMetrix(Screen):
                         # self['backdrop'].show()
                         # # os.popen('/usr/bin/showiframe %spic/browser/no.m1v' % skin_directory)
                     # else:
-                        # if pythonVer == 3:
-                            # backdropurl = backdropurl.encode()
                         # # getPage(backdropurl).addCallback(self.getBackdrop, backdrop, index).addErrback(self.downloadError)
                         # callInThread(threadGetPage, url=backdropurl, file=backdrop, key=index, success=self.getBackdrop, fail=self.downloadError)
                         # # os.popen('/usr/bin/showiframe %spic/browser/no.m1v' % skin_directory)
@@ -2035,27 +1966,18 @@ class movieBrowserMetrix(Screen):
                     self["backdrop"].instance.setPixmapFromFile(backdrop)
                     self['backdrop'].show()
                 else:
-                    if pythonVer == 3:
-                        backdropurl = backdropurl.encode()
                     callInThread(threadGetPage, url=backdropurl, file=backdrop, key=index, success=self.getBackdrop, fail=self.downloadError)
         except IndexError:
             self['backdrop'].hide()
 
-        return
 
     def getBackdrop(self, output, backdrop, index):
-        try:
-            f = open(backdrop, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(backdrop):
-                if self["backdrop"].instance:
-                    self["backdrop"].instance.setPixmapFromFile(backdrop)
-                    self['backdrop'].show()
-        except Exception as e:
-            print('error ', str(e))
-            self['backdrop'].hide()
-        return
+        f = open(backdrop, 'wb')
+        f.write(output)
+        f.close()
+        self["backdrop"].instance.setPixmapFromFile(backdrop)
+        self['backdrop'].show()
+
 
     def showDefaultBackdrop(self):
         backdrop = str(default_backdrop)
@@ -2781,8 +2703,6 @@ class movieBrowserMetrix(Screen):
         return list.getSelectedIndex()
 
     def download(self, link, name):
-        if pythonVer == 3:
-            link = link.encode()
         callInThread(threadGetPage, url=link, file=None, success=name, fail=self.downloadError)
 
     def downloadError(self, output):
@@ -3145,26 +3065,23 @@ class movieBrowserBackdrop(Screen):
                         content = 'Movie:Top'
                         media = '\n'
                         movieline = line.split(':::')
-                        try:
-                            name = movieline[0]
-                            name = sub('[Ss][0]+[Ee]', 'Special ', name)
-                            filename = movieline[1]
-                            date = movieline[2]
-                            runtime = movieline[3]
-                            rating = movieline[4]
-                            director = movieline[5]
-                            actors = movieline[6]
-                            genres = movieline[7]
-                            year = movieline[8]
-                            country = movieline[9]
-                            plotfull = movieline[10]
-                            poster = movieline[11]
-                            backdrop = movieline[12]
-                            content = movieline[13]
-                            seen = movieline[14]
-                            media = movieline[15]
-                        except IndexError:
-                            pass
+                        name = movieline[0]
+                        name = sub('[Ss][0]+[Ee]', 'Special ', name)
+                        filename = movieline[1]
+                        date = movieline[2]
+                        runtime = movieline[3]
+                        rating = movieline[4]
+                        director = movieline[5]
+                        actors = movieline[6]
+                        genres = movieline[7]
+                        year = movieline[8]
+                        country = movieline[9]
+                        plotfull = movieline[10]
+                        poster = movieline[11]
+                        backdrop = movieline[12]
+                        content = movieline[13]
+                        seen = movieline[14]
+                        media = movieline[15]
                         self.namelist.append(name)
                         self.movielist.append(filename)
                         if '3d' in filename.lower():
@@ -3241,7 +3158,7 @@ class movieBrowserBackdrop(Screen):
                     pass
 
                 self.ready = True
-        return
+
 
     def updateDatabase(self):
         if self.ready is True:
@@ -3400,7 +3317,6 @@ class movieBrowserBackdrop(Screen):
             except IndexError:
                 pass
 
-        return
 
     def getMediaInfo(self):
         service = self.session.nav.getCurrentService()
@@ -3523,9 +3439,10 @@ class movieBrowserBackdrop(Screen):
             f.write(database)
             f.close()
             os.rename(self.database + '.new', self.database)
-        return
 
     def renewTMDb(self):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if self.ready is True:
             try:
                 content = self.contentlist[self.index]
@@ -3537,48 +3454,43 @@ class movieBrowserBackdrop(Screen):
                 self.name = name
                 name = transMOVIE(name)
                 name = sub('\\+[1-2][0-9][0-9][0-9]', '', name)
-                # https://api.themoviedb.org/3/search/movie?api_key=dfc629f7ff6936a269f8c5cdb194c890&query=alien&language=it
-                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (str(tmdb_api_key), name, self.language)
+                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (tmdb_api_key, name, self.language)
                 self.getTMDbMovies(url)
             except IndexError:
                 pass
 
     def getTMDbMovies(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
-            output = sub('"poster_path":"', '"poster_path":"https://image.tmdb.org/t/p/w154', output)
-            output = sub('"poster_path":null', '"poster_path":"https://www.themoviedb.org/images/apps/moviebase.png"', output)
-            rating = re.findall('"vote_average":(.*?),', output)
-            year = re.findall('"release_date":"(.*?)"', output)
-            titles = re.findall('"title":"(.*?)"', output)
-            poster = re.findall('"poster_path":"(.*?)"', output)
-            id = re.findall('"id":(.*?),', output)
-            country = re.findall('"backdrop(.*?)_path"', output)
-            titel = _('TMDb Results')
-            if not titles:
-                self.session.open(MessageBox, _('\nNo TMDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
-            else:
-                self.session.openWithCallback(self.makeTMDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, True, False)
-        except Exception as e:
-            print('error get ', str(e))
+        output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
+        output = sub('"poster_path":"', '"poster_path":"https://image.tmdb.org/t/p/w154', output)
+        output = sub('"poster_path":null', '"poster_path":"https://www.themoviedb.org/images/apps/moviebase.png"', output)
+        rating = findall('"vote_average":(.*?),', output)
+        year = findall('"release_date":"(.*?)"', output)
+        titles = findall('"title":"(.*?)"', output)
+        poster = findall('"poster_path":"(.*?)"', output)
+        id = findall('"id":(.*?),', output)
+        country = findall('"backdrop(.*?)_path"', output)
+        titel = _('TMDb Results')
+        if not titles:
+            self.session.open(MessageBox, _('\nNo TMDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+        else:
+            self.session.openWithCallback(self.makeTMDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, True, False)
 
     def makeTMDbUpdate(self, new, select):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if new is not None:
             if select == 'movie':
                 movie = self.movielist[self.index]
                 date = self.datelist[self.index]
-                url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (new + self.language, str(tmdb_api_key))
+                url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (new + self.language, tmdb_api_key)
                 UpdateDatabase(True, self.name, movie, date).getTMDbData(url, new, True)
             elif select == 'poster':
                 poster = self.posterlist[self.index]
@@ -3599,7 +3511,7 @@ class movieBrowserBackdrop(Screen):
                 f.close()
                 os.rename(self.database + '.new', self.database)
             self.renewFinished()
-        return
+
 
     def renewTVDb(self):
         if self.ready is True:
@@ -3618,6 +3530,8 @@ class movieBrowserBackdrop(Screen):
                 pass
 
     def getTVDbMovies(self, url):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         rating = []
         year = []
         titles = []
@@ -3627,89 +3541,86 @@ class movieBrowserBackdrop(Screen):
         agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
         request = Request(url, headers=agents)
         try:
-            if pythonVer == 2:
-                output = urlopen(request, timeout=10).read()
-            else:
-                output = urlopen(request, timeout=10).read().decode('utf-8')
+            output = urlopen(request, timeout=10).read().decode('utf-8')
         except Exception:
             self.session.open(MessageBox, _('\nTheTVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
             return
-        try:
-            output = output.replace('&amp;', '&')
-            seriesid = re.findall('<seriesid>(.*?)</seriesid>', output)
-            for x in range(len(seriesid)):
-                url = ('https://www.thetvdb.com/api/%s/series/' + seriesid[x] + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
-                agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
-                request = Request(url, headers=agents)
-                try:
-                    if pythonVer == 2:
-                        output = urlopen(request, timeout=10).read()
-                    else:
-                        output = urlopen(request, timeout=10).read().decode('utf-8')
-                except Exception:
-                    output = ''
 
-                output = sub('<poster>', '<poster>https://www.thetvdb.com/banners/_cache/', output)
-                output = sub('<poster>https://www.thetvdb.com/banners/_cache/</poster>', '<poster>' + wiki_png + '</poster>', output)
-                output = sub('<Rating></Rating>', '<Rating>0.0</Rating>', output)
-                output = sub('&amp;', '&', output)
-                Rating = re.findall('<Rating>(.*?)</Rating>', output)
-                Year = re.findall('<FirstAired>([0-9]+)-', output)
-                Added = re.findall('<added>([0-9]+)-', output)
-                Titles = re.findall('<SeriesName>(.*?)</SeriesName>', output)
-                Poster = re.findall('<poster>(.*?)</poster>', output)
-                TVDbid = re.findall('<id>(.*?)</id>', output)
-                Country = re.findall('<Status>(.*?)</Status>', output)
-                try:
-                    rating.append(Rating[0])
-                except IndexError:
-                    rating.append('0.0')
+        output = output.replace('&amp;', '&')
+        seriesid = findall('<seriesid>(.*?)</seriesid>', output)
+        agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
+        for x in range(len(seriesid)):
+            url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", seriesid[x], config.plugins.moviebrowser.language.value) + ".xml"        
+#           url = ('https://www.thetvdb.com/api/%s/series/' + seriesid[x] + '/' + config.plugins.moviebrowser.language.value + '.xml' % thetvdb_api_key)
+            request = Request(url, headers=agents)
+            try:
+                output = urlopen(request, timeout=10).read().decode('utf-8')
+            except Exception:
+                output = ''
 
-                try:
-                    year.append(Year[0])
-                except IndexError:
-                    try:
-                        year.append(Added[0])
-                    except IndexError:
-                        year.append(' ')
+            output = sub('<poster>', '<poster>https://www.thetvdb.com/banners/_cache/', output)
+            output = sub('<poster>https://www.thetvdb.com/banners/_cache/</poster>', '<poster>' + wiki_png + '</poster>', output)
+            output = sub('<Rating></Rating>', '<Rating>0.0</Rating>', output)
+            output = sub('&amp;', '&', output)
+            Rating = findall('<Rating>(.*?)</Rating>', output)
+            Year = findall('<FirstAired>([0-9]+)-', output)
+            Added = findall('<added>([0-9]+)-', output)
+            Titles = findall('<SeriesName>(.*?)</SeriesName>', output)
+            Poster = findall('<poster>(.*?)</poster>', output)
+            TVDbid = findall('<id>(.*?)</id>', output)
+            Country = findall('<Status>(.*?)</Status>', output)
+            try:
+                rating.append(Rating[0])
+            except IndexError:
+                rating.append('0.0')
 
+            try:
+                year.append(Year[0])
+            except IndexError:
                 try:
-                    titles.append(Titles[0])
+                    year.append(Added[0])
                 except IndexError:
-                    titles.append(' ')
+                    year.append(' ')
 
-                try:
-                    poster.append(Poster[0])
-                except IndexError:
-                    poster.append(wiki_png)
+            try:
+                titles.append(Titles[0])
+            except IndexError:
+                titles.append(' ')
 
-                try:
-                    id.append(TVDbid[0])
-                except IndexError:
-                    id.append('0')
+            try:
+                poster.append(Poster[0])
+            except IndexError:
+                poster.append(wiki_png)
 
-                try:
-                    country.append(Country[0])
-                except IndexError:
-                    country.append(' ')
-            titel = _('TheTVDb Results')
-            if not titles:
-                self.session.open(MessageBox, _('\nNo TheTVDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+            try:
+                id.append(TVDbid[0])
+            except IndexError:
+                id.append('0')
+
+            try:
+                country.append(Country[0])
+            except IndexError:
+                country.append(' ')
+        titel = _('TheTVDb Results')
+        if not titles:
+            self.session.open(MessageBox, _('\nNo TheTVDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+        else:
+            content = self.contentlist[self.index]
+            if content == 'Series:Top':
+                self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, True)
             else:
-                content = self.contentlist[self.index]
-                if content == 'Series:Top':
-                    self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, True)
-                else:
-                    self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, False)
-        except Exception as e:
-            print('error get ', str(e))
+                self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, False)
+
 
     def makeTVDbUpdate(self, new, select):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if new is not None:
             if select == 'series':
                 movie = self.movielist[self.index]
                 date = self.datelist[self.index]
-                url = ('https://www.thetvdb.com/api/%s/series/' + new + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
+                url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", new, config.plugins.moviebrowser.language.value) + ".xml"                
+#               url = ('https://www.thetvdb.com/api/%s/series/' + new + '/' + config.plugins.moviebrowser.language.value + '.xml') % thetvdb_api_key
                 UpdateDatabase(True, self.name, movie, date).getTVDbData(url, new)
             elif select == 'banner':
                 banner = self.posterlist[self.index].split('<episode>')
@@ -3866,7 +3777,7 @@ class movieBrowserBackdrop(Screen):
                 pass
 
             self.ready = True
-        return
+
 
     def markSeen(self):
         if self.ready is True and self.content != ':::Series:Top:::':
@@ -3915,7 +3826,7 @@ class movieBrowserBackdrop(Screen):
             f.close()
             os.rename(self.database + '.new', self.database)
             self.ready = True
-        return
+
 
     def togglePlot(self):
         if self.ready is True:
@@ -4217,8 +4128,6 @@ class movieBrowserBackdrop(Screen):
                         self["banner"].instance.setPixmapFromFile(banner)
                         self['banner'].show()
                     else:
-                        if pythonVer == 3:
-                            bannerurl = bannerurl.encode()
                         callInThread(threadGetPage, url=bannerurl, file=banner, success=self.getBanner, fail=self.downloadError)
                 else:
                     self['banner'].hide()
@@ -4250,8 +4159,6 @@ class movieBrowserBackdrop(Screen):
                             self["banner"].instance.setPixmapFromFile(banner)
                             self['banner'].show()
                         else:
-                            if pythonVer == 3:
-                                bannerurl = bannerurl.encode()
                             callInThread(threadGetPage, url=bannerurl, file=banner, success=self.getBanner, fail=self.downloadError)
                     else:
                         self['banner'].hide()
@@ -4275,8 +4182,6 @@ class movieBrowserBackdrop(Screen):
                         self["eposter"].instance.setPixmapFromFile(eposter)
                         self['eposter'].show()
                     else:
-                        if pythonVer == 3:
-                            eposterurl = eposterurl.encode()
                         callInThread(threadGetPage, url=eposterurl, file=eposter, success=self.getEPoster, fail=self.downloadError)
                 else:
                     self.toggleCount = 2
@@ -4285,35 +4190,25 @@ class movieBrowserBackdrop(Screen):
             except IndexError:
                 pass
 
-        return
 
     def getEPoster(self, output, eposter):
-        try:
-            f = open(eposter, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(eposter):
-                self["eposter"].instance.setPixmapFromFile(eposter)
-                self['eposter'].show()
-                self['plotfull'].hide()
-        except Exception as e:
-            print('error ', str(e))
-            self['eposter'].hide()
-        return
+        f = open(eposter, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(eposter):
+            self["eposter"].instance.setPixmapFromFile(eposter)
+            self['eposter'].show()
+            self['plotfull'].hide()
+  
 
     def getBanner(self, output, banner):
-        try:
-            f = open(banner, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(banner):
-                self["banner"].instance.setPixmapFromFile(banner)
-                self['banner'].show()
-                self['plotfull'].hide()
-        except Exception as e:
-            print('error ', str(e))
-            self['banner'].hide()
-        return
+        f = open(banner, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(banner):
+            self["banner"].instance.setPixmapFromFile(banner)
+            self['banner'].show()
+            self['plotfull'].hide()
 
     def makePoster(self):
         for x in range(self.posterALL):
@@ -4332,26 +4227,19 @@ class movieBrowserBackdrop(Screen):
                     self['poster' + str(x)].instance.setPixmapFromFile(poster)
                     self['poster' + str(x)].show()
                 else:
-                    if pythonVer == 3:
-                        posterurl = posterurl.encode()
                     callInThread(threadGetPage, url=posterurl, file=poster, key=x, success=self.getPoster, fail=self.downloadError)
             except IndexError:
                 self['poster' + str(x)].hide()
 
-        return
 
-    def getPoster(self, output, x, poster):
-        try:
-            f = open(poster, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(poster):
-                self['poster' + str(x)].instance.setPixmapFromFile(poster)
-                self['poster' + str(x)].show()
-        except Exception as e:
-            print('error ', str(e))
-            self['poster' + str(x)].hide()
-        return
+    def getPoster(self, output, poster, x):
+        f = open(poster, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(poster):
+            self['poster' + str(x)].instance.setPixmapFromFile(poster)
+            self['poster' + str(x)].show()
+
 
     def showBackdrops(self, index):
         try:
@@ -4370,8 +4258,6 @@ class movieBrowserBackdrop(Screen):
                         # self['backdrop'].show()
                         # # os.popen('/usr/bin/showiframe %spic/browser/no.m1v' % skin_directory)
                     # else:
-                        # if pythonVer == 3:
-                            # backdropurl = backdropurl.encode()
                         # # getPage(backdropurl).addCallback(self.getBackdrop, backdrop, index).addErrback(self.downloadError)
                         # callInThread(threadGetPage, url=backdropurl, file=backdrop, key=index, success=self.getBackdrop, fail=self.downloadError)
                         # # os.popen('/usr/bin/showiframe %spic/browser/no.m1v' % skin_directory)
@@ -4379,28 +4265,17 @@ class movieBrowserBackdrop(Screen):
                         self["backdrop"].instance.setPixmapFromFile(backdrop)
                         self['backdrop'].show()
                 else:
-                    if pythonVer == 3:
-                        backdropurl = backdropurl.encode()
                     # getPage(backdropurl).addCallback(self.getBackdrop, backdrop, index).addErrback(self.downloadError)
                     callInThread(threadGetPage, url=backdropurl, file=backdrop, key=index, success=self.getBackdrop, fail=self.downloadError)
         except IndexError:
             self['backdrop'].hide()
 
-        return
-
     def getBackdrop(self, output, backdrop, index):
-        try:
-            f = open(backdrop, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(backdrop):
-                if self["backdrop"].instance:
-                    self["backdrop"].instance.setPixmapFromFile(backdrop)
-                    self['backdrop'].show()
-        except Exception as e:
-            print('error ', str(e))
-            self['backdrop'].hide()
-        return
+        f = open(backdrop, 'wb')
+        f.write(output)
+        f.close()
+        self["backdrop"].instance.setPixmapFromFile(backdrop)
+        self['backdrop'].show()
 
     def showDefaultBackdrop(self):
         backdrop = str(default_backdrop)
@@ -5050,41 +4925,11 @@ class movieBrowserBackdrop(Screen):
             f.close()
             self.makeMovies(self.filter)
 
-    # def youTube(self):
-        # if self.ready is True:
-            # YouTubeSearch = False
-            # try:
-                # from Plugins.Extensions.YouTube.YouTubeSearch import YouTubeSearch as YouTubeSearch
-                # YouTubeSearch = True
-            # except:
-                # pass
-            # if YouTubeSearch:
-                # from Plugins.Extensions.YouTube.YouTubeSearch import YouTubeSearch as YouTubeSearch
-                # try:
-                    # name = self.namelist[self.index]
-                    # name = name + 'FIN'
-                    # name = sub(' - [Ss][0-9]+[Ee][0-9]+.*?FIN', '', name)
-                    # name = sub('[Ss][0-9]+[Ee][0-9]+.*?FIN', '', name)
-                    # name = sub('FIN', '', name)
-
-                    # self.session.openWithCallback(self.searchScreenCallback, YouTubeSearch, name)
-                # # self.session.open(searchYouTube, name)
-                # except IndexError:
-                    # pass
-
-    # def searchScreenCallback(self, search_value=None):
-        # if not search_value:  # cancel in search
-            # return
-        # else:
-            # pass
 
     def getIndex(self, list):
         return list.getSelectedIndex()
 
     def download(self, link, name):
-        if pythonVer == 3:
-            link = link.encode()
-        # getPage(link).addCallback(name).addErrback(self.downloadError)
         callInThread(threadGetPage, url=link, file=None, success=name, fail=self.downloadError)
 
     def downloadError(self, output):
@@ -5446,7 +5291,6 @@ class movieBrowserPosterwall(Screen):
             self.openTimer.callback.append(self.openInfo)
             self.openTimer.start(500, True)
 
-        return
 
     def openInfo(self):
         if fileExists(dbreset):
@@ -5503,26 +5347,23 @@ class movieBrowserPosterwall(Screen):
                         content = 'Movie:Top'
                         media = '\n'
                         movieline = line.split(':::')
-                        try:
-                            name = movieline[0]
-                            name = sub('[Ss][0]+[Ee]', 'Special ', name)
-                            filename = movieline[1]
-                            date = movieline[2]
-                            runtime = movieline[3]
-                            rating = movieline[4]
-                            director = movieline[5]
-                            actors = movieline[6]
-                            genres = movieline[7]
-                            year = movieline[8]
-                            country = movieline[9]
-                            plotfull = movieline[10]
-                            poster = movieline[11]
-                            backdrop = movieline[12]
-                            content = movieline[13]
-                            seen = movieline[14]
-                            media = movieline[15]
-                        except IndexError:
-                            pass
+                        name = movieline[0]
+                        name = sub('[Ss][0]+[Ee]', 'Special ', name)
+                        filename = movieline[1]
+                        date = movieline[2]
+                        runtime = movieline[3]
+                        rating = movieline[4]
+                        director = movieline[5]
+                        actors = movieline[6]
+                        genres = movieline[7]
+                        year = movieline[8]
+                        country = movieline[9]
+                        plotfull = movieline[10]
+                        poster = movieline[11]
+                        backdrop = movieline[12]
+                        content = movieline[13]
+                        seen = movieline[14]
+                        media = movieline[15]
                         self.namelist.append(name)
                         self.movielist.append(filename)
                         if '3d' in filename.lower():
@@ -5922,6 +5763,8 @@ class movieBrowserPosterwall(Screen):
         return
 
     def renewTMDb(self):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if self.ready is True:
             try:
                 content = self.contentlist[self.index]
@@ -5933,48 +5776,44 @@ class movieBrowserPosterwall(Screen):
                 self.name = name
                 name = transMOVIE(name)
                 name = sub('\\+[1-2][0-9][0-9][0-9]', '', name)
-                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (str(tmdb_api_key), name, self.language)
+                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (tmdb_api_key, name, self.language)
                 self.getTMDbMovies(url)
             except IndexError:
                 pass
 
     def getTMDbMovies(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
-            output = sub('"poster_path":"', '"poster_path":"https://image.tmdb.org/t/p/w154', output)
-            output = sub('"poster_path":null', '"poster_path":"https://www.themoviedb.org/images/apps/moviebase.png"', output)
-            rating = re.findall('"vote_average":(.*?),', output)
-            year = re.findall('"release_date":"(.*?)"', output)
-            titles = re.findall('"title":"(.*?)"', output)
-            poster = re.findall('"poster_path":"(.*?)"', output)
-            id = re.findall('"id":(.*?),', output)
-            country = re.findall('"backdrop(.*?)_path"', output)
-            titel = _('TMDb Results')
-            if not titles:
-                self.session.open(MessageBox, _('\nNo TMDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
-            else:
-                self.session.openWithCallback(self.makeTMDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, True, False)
-        except Exception as e:
-            print('error get ', str(e))
+        output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
+        output = sub('"poster_path":"', '"poster_path":"https://image.tmdb.org/t/p/w154', output)
+        output = sub('"poster_path":null', '"poster_path":"https://www.themoviedb.org/images/apps/moviebase.png"', output)
+        rating = findall('"vote_average":(.*?),', output)
+        year = findall('"release_date":"(.*?)"', output)
+        titles = findall('"title":"(.*?)"', output)
+        poster = findall('"poster_path":"(.*?)"', output)
+        id = findall('"id":(.*?),', output)
+        country = findall('"backdrop(.*?)_path"', output)
+        titel = _('TMDb Results')
+        if not titles:
+            self.session.open(MessageBox, _('\nNo TMDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+        else:
+            self.session.openWithCallback(self.makeTMDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, True, False)
 
     def makeTMDbUpdate(self, new, select):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if new is not None:
             if select == 'movie':
                 movie = self.movielist[self.index]
                 date = self.datelist[self.index]
 
-                url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (new, str(tmdb_api_key))
+                url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (new, tmdb_api_key)
                 UpdateDatabase(True, self.name, movie, date).getTMDbData(url, new, True)
             elif select == 'poster':
                 poster = self.posterlist[self.index]
@@ -6014,6 +5853,8 @@ class movieBrowserPosterwall(Screen):
                 pass
 
     def getTVDbMovies(self, url):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         rating = []
         year = []
         titles = []
@@ -6023,90 +5864,86 @@ class movieBrowserPosterwall(Screen):
         agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
         request = Request(url, headers=agents)
         try:
-            if pythonVer == 2:
-                output = urlopen(request, timeout=10).read()
-            else:
-                output = urlopen(request, timeout=10).read().decode('utf-8')
+            output = urlopen(request, timeout=10).read().decode('utf-8')
         except Exception:
             self.session.open(MessageBox, _('\nTheTVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
             return
-        try:
-            output = output.replace('&amp;', '&')
-            seriesid = re.findall('<seriesid>(.*?)</seriesid>', output)
-            for x in range(len(seriesid)):
-                url = ('https://www.thetvdb.com/api/%s/series/' + seriesid[x] + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
-                agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
-                request = Request(url, headers=agents)
-                try:
-                    if pythonVer == 2:
-                        output = urlopen(request, timeout=10).read()
-                    else:
-                        output = urlopen(request, timeout=10).read().decode('utf-8')
-                except Exception:
-                    output = ''
 
-                output = sub('<poster>', '<poster>https://www.thetvdb.com/banners/_cache/', output)
-                output = sub('<poster>https://www.thetvdb.com/banners/_cache/</poster>', '<poster>' + wiki_png + '</poster>', output)
-                output = sub('<Rating></Rating>', '<Rating>0.0</Rating>', output)
-                output = sub('&amp;', '&', output)
-                Rating = re.findall('<Rating>(.*?)</Rating>', output)
-                Year = re.findall('<FirstAired>([0-9]+)-', output)
-                Added = re.findall('<added>([0-9]+)-', output)
-                Titles = re.findall('<SeriesName>(.*?)</SeriesName>', output)
-                Poster = re.findall('<poster>(.*?)</poster>', output)
-                TVDbid = re.findall('<id>(.*?)</id>', output)
-                Country = re.findall('<Status>(.*?)</Status>', output)
-                try:
-                    rating.append(Rating[0])
-                except IndexError:
-                    rating.append('0.0')
+        output = output.replace('&amp;', '&')
+        seriesid = findall('<seriesid>(.*?)</seriesid>', output)
+        agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
+        for x in range(len(seriesid)):
+            url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", seriesid[x], config.plugins.moviebrowser.language.value) + ".xml"        
+#           url = ('https://www.thetvdb.com/api/%s/series/' + seriesid[x] + '/' + config.plugins.moviebrowser.language.value + '.xml' % thetvdb_api_key)
+            request = Request(url, headers=agents)
+            try:
+                output = urlopen(request, timeout=10).read().decode('utf-8')
+            except Exception:
+                output = ''
 
-                try:
-                    year.append(Year[0])
-                except IndexError:
-                    try:
-                        year.append(Added[0])
-                    except IndexError:
-                        year.append(' ')
+            output = sub('<poster>', '<poster>https://www.thetvdb.com/banners/_cache/', output)
+            output = sub('<poster>https://www.thetvdb.com/banners/_cache/</poster>', '<poster>' + wiki_png + '</poster>', output)
+            output = sub('<Rating></Rating>', '<Rating>0.0</Rating>', output)
+            output = sub('&amp;', '&', output)
+            Rating = findall('<Rating>(.*?)</Rating>', output)
+            Year = findall('<FirstAired>([0-9]+)-', output)
+            Added = findall('<added>([0-9]+)-', output)
+            Titles = findall('<SeriesName>(.*?)</SeriesName>', output)
+            Poster = findall('<poster>(.*?)</poster>', output)
+            TVDbid = findall('<id>(.*?)</id>', output)
+            Country = findall('<Status>(.*?)</Status>', output)
+            try:
+                rating.append(Rating[0])
+            except IndexError:
+                rating.append('0.0')
 
+            try:
+                year.append(Year[0])
+            except IndexError:
                 try:
-                    titles.append(Titles[0])
+                    year.append(Added[0])
                 except IndexError:
-                    titles.append(' ')
+                    year.append(' ')
 
-                try:
-                    poster.append(Poster[0])
-                except IndexError:
-                    poster.append(wiki_png)
+            try:
+                titles.append(Titles[0])
+            except IndexError:
+                titles.append(' ')
 
-                try:
-                    id.append(TVDbid[0])
-                except IndexError:
-                    id.append('0')
+            try:
+                poster.append(Poster[0])
+            except IndexError:
+                poster.append(wiki_png)
 
-                try:
-                    country.append(Country[0])
-                except IndexError:
-                    country.append(' ')
-            titel = _('TheTVDb Results')
-            if not titles:
-                self.session.open(MessageBox, _('\nNo TheTVDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+            try:
+                id.append(TVDbid[0])
+            except IndexError:
+                id.append('0')
+
+            try:
+                country.append(Country[0])
+            except IndexError:
+                country.append(' ')
+        titel = _('TheTVDb Results')
+        if not titles:
+            self.session.open(MessageBox, _('\nNo TheTVDb Results for %s.') % self.name, MessageBox.TYPE_INFO, close_on_any_key=True)
+        else:
+            content = self.contentlist[self.index]
+            if content == 'Series:Top':
+                self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, True)
             else:
-                content = self.contentlist[self.index]
-                if content == 'Series:Top':
-                    self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, True)
-                else:
-                    self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, False)
-        except Exception as e:
-            print('error get ', str(e))
+                self.session.openWithCallback(self.makeTVDbUpdate, moviesList, titel, rating, year, titles, poster, id, country, False, False)
 
     def makeTVDbUpdate(self, new, select):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         if new is not None:
             if select == 'series':
                 movie = self.movielist[self.index]
                 date = self.datelist[self.index]
                 # mmmmmmm  please report issue
-                url = ('https://www.thetvdb.com/api/%s/series/' + new + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
+                url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", new, config.plugins.moviebrowser.language.value) + ".xml"                
+#               url = ('https://www.thetvdb.com/api/%s/series/' + new + '/' + config.plugins.moviebrowser.language.value + '.xml') % thetvdb_api_key
                 UpdateDatabase(True, self.name, movie, date).getTVDbData(url, new)
             elif select == 'banner':
                 banner = self.posterlist[self.index].split('<episode>')
@@ -6729,7 +6566,6 @@ class movieBrowserPosterwall(Screen):
         except IndexError:
             self['2Country'].hide()
             self['2country'].hide()
-            pass
 
     def makePlot(self, index):
         self['plotfullback'].show()
@@ -6764,8 +6600,6 @@ class movieBrowserPosterwall(Screen):
                         self["banner"].instance.setPixmapFromFile(banner)
                         self['banner'].show()
                     else:
-                        if pythonVer == 3:
-                            bannerurl = bannerurl.encode()
                         callInThread(threadGetPage, url=bannerurl, file=banner, success=self.getBanner, fail=self.downloadError)
                 else:
                     self['banner'].hide()
@@ -6797,8 +6631,6 @@ class movieBrowserPosterwall(Screen):
                             self["banner"].instance.setPixmapFromFile(banner)
                             self['banner'].show()
                         else:
-                            if pythonVer == 3:
-                                bannerurl = bannerurl.encode()
                             callInThread(threadGetPage, url=bannerurl, file=banner, success=self.getBanner, fail=self.downloadError)
                     else:
                         self['banner'].hide()
@@ -6822,8 +6654,6 @@ class movieBrowserPosterwall(Screen):
                         self["eposter"].instance.setPixmapFromFile(eposter)
                         self['eposter'].show()
                     else:
-                        if pythonVer == 3:
-                            eposterurl = eposterurl.encode()
                         callInThread(threadGetPage, url=eposterurl, file=eposter, success=self.getEPoster, fail=self.downloadError)
                 else:
                     self.toggleCount = 1
@@ -6837,32 +6667,23 @@ class movieBrowserPosterwall(Screen):
         return
 
     def getEPoster(self, output, eposter):
-        try:
-            f = open(eposter, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(eposter):
-                self["eposter"].instance.setPixmapFromFile(eposter)
-                self['eposter'].show()
-                self['plotfull'].hide()
-        except Exception as e:
-            print('error ', str(e))
-            self['eposter'].hide()
+        f = open(eposter, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(eposter):
+            self["eposter"].instance.setPixmapFromFile(eposter)
+            self['eposter'].show()
+            self['plotfull'].hide()
         return
 
     def getBanner(self, output, banner):
-        try:
-            f = open(banner, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(banner):
-                self["banner"].instance.setPixmapFromFile(banner)
-                self['banner'].show()
-                self['plotfull'].hide()
-        except Exception as e:
-            print('error ', str(e))
-            self['banner'].hide()
-        return
+        f = open(banner, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(banner):
+            self["banner"].instance.setPixmapFromFile(banner)
+            self['banner'].show()
+            self['plotfull'].hide()
 
     def makePoster(self, page):
         for x in range(self.posterALL):
@@ -6876,27 +6697,20 @@ class movieBrowserPosterwall(Screen):
                     self['poster' + str(x)].instance.setPixmapFromFile(poster)
                     self['poster' + str(x)].show()
                 else:
-                    if pythonVer == 3:
-                        posterurl = posterurl.encode()
                     callInThread(threadGetPage, url=posterurl, file=poster, key=x, success=self.getPoster, fail=self.downloadError)
             except IndexError:
                 self['poster' + str(x)].hide()
         self['poster_back' + str(self.wallindex)].hide()
-        return
 
-    def getPoster(self, output, x, poster):
-        try:
-            f = open(poster, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(poster):
-                if self["poster"].instance:
-                    self['poster' + str(x)].instance.setPixmapFromFile(poster)
-                    self['poster' + str(x)].show()
-        except Exception as e:
-            print('error ', str(e))
-            self['poster' + str(x)].hide()
-        return
+
+    def getPoster(self, output, poster, x):
+        f = open(poster, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(poster):
+            if self["poster"].instance:
+                self['poster' + str(x)].instance.setPixmapFromFile(poster)
+                self['poster' + str(x)].show()
 
     def paintFrame(self):
         try:
@@ -6913,8 +6727,6 @@ class movieBrowserPosterwall(Screen):
                 self['frame'].show()
         except IndexError:
             pass
-
-        return
 
     def showBackdrops(self, index):
         try:
@@ -6933,8 +6745,6 @@ class movieBrowserPosterwall(Screen):
                         # self['backdrop'].show()
                         # # os.popen('/usr/bin/showiframe %spic/browser/no.m1v' % skin_directory)
                     # else:
-                        # if pythonVer == 3:
-                            # backdropurl = backdropurl.encode()
                         # # getPage(backdropurl).addCallback(self.getBackdrop, backdrop, index).addErrback(self.downloadError)
                         # callInThread(threadGetPage, url=backdropurl, file=backdrop, key=index, success=self.getBackdrop, fail=self.downloadError)
                         # # os.popen('/usr/bin/showiframe %spic/browser/no.m1v' % skin_directory)
@@ -6942,8 +6752,6 @@ class movieBrowserPosterwall(Screen):
                     self["backdrop"].instance.setPixmapFromFile(backdrop)
                     self['backdrop'].show()
                 else:
-                    if pythonVer == 3:
-                        backdropurl = backdropurl.encode()
                     callInThread(threadGetPage, url=backdropurl, file=backdrop, key=index, success=self.getBackdrop, fail=self.downloadError)
         except IndexError:
             self['backdrop'].hide()
@@ -6951,18 +6759,14 @@ class movieBrowserPosterwall(Screen):
         return
 
     def getBackdrop(self, output, backdrop, index):
-        try:
-            f = open(backdrop, 'wb')
-            f.write(output)
-            f.close()
-            if fileExists(backdrop):
-                if self["backdrop"].instance:
-                    self["backdrop"].instance.setPixmapFromFile(backdrop)
-                    self['backdrop'].show()
-        except Exception as e:
-            print('error ', str(e))
-            self['backdrop'].hide()
-        return
+        f = open(backdrop, 'wb')
+        f.write(output)
+        f.close()
+        if fileExists(backdrop):
+            if self["backdrop"].instance:
+                self["backdrop"].instance.setPixmapFromFile(backdrop)
+                self['backdrop'].show()
+
 
     def showDefaultBackdrop(self):
         backdrop = str(default_backdrop)
@@ -7827,8 +7631,6 @@ class movieBrowserPosterwall(Screen):
         return list.getSelectedIndex()
 
     def download(self, link, name):
-        if pythonVer == 3:
-            link = link.encode()
         callInThread(threadGetPage, url=link, file=None, success=name, fail=self.downloadError)
 
     def downloadError(self, output):
@@ -7967,9 +7769,27 @@ class UpdateDatabase():
         allfiles = ':::'
         count = 0
         folder = config.plugins.moviebrowser.moviefolder.value
-        for root, dirs, files in os.walk(folder, topdown=False, onerror=None, followlinks=True):
+        for root, dirs, files in os.walk(folder.encode(), topdown=False, onerror=None, followlinks=True):
             for name in files:
                 count += 1
+#                print("[Moviebrowser][UpdateDatabase]0 makeUpdate root, filename", root, "   ", name)
+                if isinstance(root, bytes):                
+                    try:
+#                        print("[Moviebrowser][UpdateDatabase]00 makeUpdate root", root)
+                        root = root.decode("utf-8", "strict")
+                    except UnicodeDecodeError:
+#                        print("[Moviebrowser][UpdateDatabase]01 makeUpdate root", root)
+                        root = root.decode("latin-1", "surrogateescape")
+#                    print("[Moviebrowser][UpdateDatabase]02 makeUpdate filename", root)                 
+
+#                print("[Moviebrowser][UpdateDatabase]00 makeUpdate filename", name)
+                if isinstance(name, bytes):                                
+                    try:
+                        name = name.decode("utf-8", "strict")
+                    except UnicodeDecodeError:
+#                        print("[Moviebrowser][UpdateDatabase]01 makeUpdate filename", name)
+                        name = name.decode("latin-1", "surrogateescape")
+#                    print("[Moviebrowser][UpdateDatabase]02 makeUpdate filename", name)                                            
                 if name.endswith('.ts') or name.endswith('.avi') or name.endswith('.divx') or name.endswith('.flv') or name.lower().endswith('.iso') or name.endswith('.m2ts') or name.endswith('.m4v') or name.endswith('.mov') or name.endswith('.mp4') or name.endswith('.mpg') or name.endswith('.mpeg') or name.endswith('.mkv') or name.endswith('.vob'):
                     filename = os.path.join(root, name)
                     allfiles = allfiles + filename + ':::'
@@ -8026,19 +7846,19 @@ class UpdateDatabase():
             else:
                 movie = transMOVIE(self.name)
                 movie = sub('\\+[1-2][0-9][0-9][0-9]', '', movie)
-                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (str(tmdb_api_key), movie, self.language)
+                url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (tmdb_api_key, movie, self.language)
                 self.getTMDbData(url, '0', False)
         return
 
     def getTMDbData(self, url, tmdbid, renew):
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value  
+        print("[Moviebrowser][UpdateDatabase][getTMDbData]0 url", url)
         self.tmdbCount += 1
         headers = {'Accept': 'application/json'}
         request = Request(url, headers=headers)
         try:
-            if pythonVer == 2:
-                output = urlopen(request, timeout=10).read()
-            else:
-                output = urlopen(request, timeout=10).read().decode('utf-8')
+            output = urlopen(request, timeout=10).read().decode('utf-8')
         except Exception:
             output = ''
 
@@ -8053,17 +7873,17 @@ class UpdateDatabase():
         else:
             output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
             if tmdbid == '0':
-                tmdbid = re.findall('"id":(.*?),', output)
+                tmdbid = findall('"id":(.*?),', output)
                 try:
                     tmdbid = tmdbid[0]
                 except IndexError:
                     tmdbid = '0'
 
-                name = re.findall('"title":"(.*?)"', output)
-                backdrop = re.findall('"backdrop_path":"(.*?)"', output)
-                year = re.findall('"release_date":"(.*?)"', output)
-                poster = re.findall('"poster_path":"(.*?)"', output)
-                rating = re.findall('"vote_average":(.*?),', output)
+                name = findall('"title":"(.*?)"', output)
+                backdrop = findall('"backdrop_path":"(.*?)"', output)
+                year = findall('"release_date":"(.*?)"', output)
+                poster = findall('"poster_path":"(.*?)"', output)
+                rating = findall('"vote_average":(.*?),', output)
                 try:
                     self.namelist[self.dbcount - 1] = name[0]
                 except IndexError:
@@ -8080,52 +7900,46 @@ class UpdateDatabase():
                     self.posterlist.append(str(default_poster))
 
                 # https://api.themoviedb.org/3/movie/8587&language=it?api_key=dfc629f7ff6936a269f8c5cdb194c890
-                url = 'https://api.themoviedb.org/3/movie/%s&language=%s?api_key=%s' % (tmdbid, self.language, str(tmdb_api_key))
+                url = 'https://api.themoviedb.org/3/movie/%s&language=%s?api_key=%s' % (tmdbid, self.language, tmdb_api_key)
                 headers = {'Accept': 'application/json'}
                 request = Request(url, headers=headers)
                 try:
-                    if pythonVer == 2:
-                        output = urlopen(request, timeout=10).read()
-                    else:
-                        output = urlopen(request, timeout=10).read().decode('utf-8')
+                    output = urlopen(request, timeout=10).read().decode('utf-8')
                 except Exception:
                     output = ''
 
-            plot = re.findall('"overview":"(.*?)","', output)
+            plot = findall('"overview":"(.*?)","', output)
             if renew is True:
                 output = sub('"belongs_to_collection":{.*?}', '', output)
-                name = re.findall('"title":"(.*?)"', output)
-                backdrop = re.findall('"backdrop_path":"(.*?)"', output)
-                poster = re.findall('"poster_path":"(.*?)"', output)
-            url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (tmdbid, str(tmdb_api_key))
+                name = findall('"title":"(.*?)"', output)
+                backdrop = findall('"backdrop_path":"(.*?)"', output)
+                poster = findall('"poster_path":"(.*?)"', output)
+            url = 'https://api.themoviedb.org/3/movie/%s?api_key=%s' % (tmdbid, tmdb_api_key)
             headers = {'Accept': 'application/json'}
             request = Request(url, headers=headers)
             try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
+                output = urlopen(request, timeout=10).read().decode('utf-8')
             except Exception:
                 output = ''
 
             output = output.replace('&amp;', '&').replace('\\/', '/').replace('}', ',')
             output = sub('"belongs_to_collection":{.*?}', '', output)
             if not plot:
-                plot = re.findall('"overview":"(.*?)","', output)
-            genre = re.findall('"genres":[[]."id":[0-9]+,"name":"(.*?)"', output)
-            genre2 = re.findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
-            genre3 = re.findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
-            genre4 = re.findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
-            genre5 = re.findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
-            country = re.findall('"iso_3166_1":"(.*?)"', output)
-            runtime = re.findall('"runtime":(.*?),', output)
+                plot = findall('"overview":"(.*?)","', output)
+            genre = findall('"genres":[[]."id":[0-9]+,"name":"(.*?)"', output)
+            genre2 = findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
+            genre3 = findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
+            genre4 = findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
+            genre5 = findall('"genres":[[]."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":".*?".,."id":[0-9]+,"name":"(.*?)"', output)
+            country = findall('"iso_3166_1":"(.*?)"', output)
+            runtime = findall('"runtime":(.*?),', output)
             if renew is True:
-                year = re.findall('"release_date":"(.*?)"', output)
-                rating = re.findall('"vote_average":(.*?),', output)
+                year = findall('"release_date":"(.*?)"', output)
+                rating = findall('"vote_average":(.*?),', output)
                 if not backdrop:
-                    backdrop = re.findall('"backdrop_path":"(.*?)"', output)
+                    backdrop = findall('"backdrop_path":"(.*?)"', output)
                 if not poster:
-                    poster = re.findall('"poster_path":"(.*?)"', output)
+                    poster = findall('"poster_path":"(.*?)"', output)
                 try:
                     self.namelist[self.dbcount - 1] = name[0]
                 except IndexError:
@@ -8141,25 +7955,25 @@ class UpdateDatabase():
                 except IndexError:
                     self.posterlist.append(str(default_poster))
             # https://api.themoviedb.org/3/movie/8587/casts?api_key=dfc629f7ff6936a269f8c5cdb194c890
-            url = 'https://api.themoviedb.org/3/movie/%s/casts?api_key=%s' % (tmdbid, str(tmdb_api_key))
+            url = 'https://api.themoviedb.org/3/movie/%s/casts?api_key=%s' % (tmdbid, tmdb_api_key)
             headers = {'Accept': 'application/json'}
             request = Request(url, headers=headers)
             try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
+                output = urlopen(request, timeout=10).read().decode('utf-8')
             except Exception:
                 output = ''
-
-            actor = re.findall('"name":"(.*?)"', output)
-            actor2 = re.findall('"name":".*?"name":"(.*?)"', output)
-            actor3 = re.findall('"name":".*?"name":".*?"name":"(.*?)"', output)
-            actor4 = re.findall('"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
-            actor5 = re.findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
-            actor6 = re.findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
-            actor7 = re.findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
-            director = re.findall('"job":"Director","name":"(.*?)"', output)
+#            print("[Moviebrowser][UpdateDatabase] getTMDbData2 filename", output)
+            actor = findall('"name":"(.*?)"', output)
+            actor2 = findall('"name":".*?"name":"(.*?)"', output)
+            actor3 = findall('"name":".*?"name":".*?"name":"(.*?)"', output)
+            actor4 = findall('"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
+            actor5 = findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
+            actor6 = findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
+            actor7 = findall('"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":".*?"name":"(.*?)"', output)
+            director = findall('"name":"(.*?)", "department":"Directing","job":"Director"', output)
+            if director == " ":
+                director = findall('"job":"Director", "name":"(.*?)"', output)           
+#            print("[Moviebrowser][UpdateDatabase]1 getTMDbData2 director", director)            
             res = []
             try:
                 res.append(runtime[0] + ' min')
@@ -8226,14 +8040,14 @@ class UpdateDatabase():
         return
 
     def getTVDbData(self, url, seriesid):
+        print("[Moviebrowser][UpdateDatabase][getTVDbData]0 url", url)
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
         self.tvdbCount += 1
         agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
         request = Request(url, headers=agents)
         try:
-            if pythonVer == 2:
-                output = urlopen(request, timeout=10).read()
-            else:
-                output = urlopen(request, timeout=10).read().decode('utf-8')
+            output = urlopen(request, timeout=10).read().decode('utf-8')
         except Exception:
             output = ''
 
@@ -8266,7 +8080,7 @@ class UpdateDatabase():
                 self.makeDataEntry(self.dbcount - 1, True)
         else:
             if seriesid == '0':
-                seriesid = re.findall('<seriesid>(.*?)</seriesid>', output)
+                seriesid = findall('<seriesid>(.*?)</seriesid>', output)
                 try:
                     seriesid = seriesid[0]
                 except IndexError:
@@ -8281,30 +8095,28 @@ class UpdateDatabase():
                     season = '0'
                 episode = search('[Ss][0-9]+[Ee]([0-9]+)', data)
                 episode = episode.group(1).lstrip('0')
-                url = ('https://www.thetvdb.com/api/%s/series/' + seriesid + '/default/' + season + '/' + episode + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
+                url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", seriesid, "default", season, episode, config.plugins.moviebrowser.language.value) + ".xml" 
                 agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
                 request = Request(url, headers=agents)
                 try:
-                    if pythonVer == 2:
-                        output = urlopen(request, timeout=10).read()
-                    else:
-                        output = urlopen(request, timeout=10).read().decode('utf-8')
+                    output = urlopen(request, timeout=10).read().decode('utf-8')
                 except Exception:
                     output = ''
 
                 output = sub('\n', '', output)
                 output = sub('&amp;', '&', output)
-                episode = re.findall('<EpisodeName>(.*?)</EpisodeName>', output)
-                year = re.findall('<FirstAired>([0-9]+)-', output)
-                guest = re.findall('<GuestStars>[|](.*?)[|]</GuestStars>', output)
-                director = re.findall('<Director>[|](.*?)[|]', output)
+                episode = findall('<EpisodeName>(.*?)</EpisodeName>', output)
+                year = findall('<FirstAired>([0-9]+)-', output)
+                guest = findall('<GuestStars>[|](.*?)[|]</GuestStars>', output)
+                director = findall('<Director>[|](.*?)[|]', output)
                 if not director:
-                    director = re.findall('<Director>(.*?)[|]', output)
+                    director = findall('<Director>(.*?)[|]', output)
                     if not director:
-                        director = re.findall('<Director>(.*?)</Director>', output)
-                plotfull = re.findall('<Overview>(.*?)</Overview>', output, re.S)
-                rating = re.findall('<Rating>(.*?)</Rating>', output)
-                eposter = re.findall('<filename>(.*?)</filename>', output)
+                        director = findall('<Director>(.*?)</Director>', output)
+                print("[Moviebrowser][UpdateDatabase]2 getTVDbData2 director", director)
+                plotfull = findall('<Overview>(.*?)</Overview>', output, reS)
+                rating = findall('<Rating>(.*?)</Rating>', output)
+                eposter = findall('<filename>(.*?)</filename>', output)
             else:
                 data = ''
                 episode = []
@@ -8314,54 +8126,51 @@ class UpdateDatabase():
                 plotfull = []
                 rating = []
                 eposter = []
-            url = ('https://www.thetvdb.com/api/%s/series/' + seriesid + '/' + config.plugins.moviebrowser.language.value + '.xml') % str(thetvdb_api_key)
+            url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", seriesid, config.plugins.moviebrowser.language.value) + ".xml"
             agents = {'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)'}
             request = Request(url, headers=agents)
             try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
+                output = urlopen(request, timeout=10).read().decode('utf-8')
             except Exception:
                 output = ''
 
             output = sub('\n', '', output)
             output = sub('&amp;', '&', output)
             output = sub('&quot;', '"', output)
-            name = re.findall('<SeriesName>(.*?)</SeriesName>', output)
-            runtime = re.findall('<Runtime>(.*?)</Runtime>', output)
+            name = findall('<SeriesName>(.*?)</SeriesName>', output)
+            runtime = findall('<Runtime>(.*?)</Runtime>', output)
             if not rating:
-                rating = re.findall('<Rating>(.*?)</Rating>', output)
-            actors = re.findall('<Actors>(.*?)</Actors>', output)
+                rating = findall('<Rating>(.*?)</Rating>', output)
+            actors = findall('<Actors>(.*?)</Actors>', output)
             actor = actor2 = actor3 = actor4 = actor5 = actor6 = actor7 = genre = genre2 = genre3 = genre4 = genre5 = []
             try:
-                actor = re.findall('[|](.*?)[|]', actors[0])
-                actor2 = re.findall('[|].*?[|](.*?)[|]', actors[0])
-                actor3 = re.findall('[|].*?[|].*?[|](.*?)[|]', actors[0])
-                actor4 = re.findall('[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
-                actor5 = re.findall('[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
-                actor6 = re.findall('[|].*?[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
-                actor7 = re.findall('[|].*?[|].*?[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
+                actor = findall('[|](.*?)[|]', actors[0])
+                actor2 = findall('[|].*?[|](.*?)[|]', actors[0])
+                actor3 = findall('[|].*?[|].*?[|](.*?)[|]', actors[0])
+                actor4 = findall('[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
+                actor5 = findall('[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
+                actor6 = findall('[|].*?[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
+                actor7 = findall('[|].*?[|].*?[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', actors[0])
             except IndexError:
                 pass
 
-            genres = re.findall('<Genre>(.*?)</Genre>', output)
+            genres = findall('<Genre>(.*?)</Genre>', output)
             try:
-                genre = re.findall('[|](.*?)[|]', genres[0])
-                genre2 = re.findall('[|].*?[|](.*?)[|]', genres[0])
-                genre3 = re.findall('[|].*?[|].*?[|](.*?)[|]', genres[0])
-                genre4 = re.findall('[|].*?[|].*?[|].*?[|](.*?)[|]', genres[0])
-                genre5 = re.findall('[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', genres[0])
+                genre = findall('[|](.*?)[|]', genres[0])
+                genre2 = findall('[|].*?[|](.*?)[|]', genres[0])
+                genre3 = findall('[|].*?[|].*?[|](.*?)[|]', genres[0])
+                genre4 = findall('[|].*?[|].*?[|].*?[|](.*?)[|]', genres[0])
+                genre5 = findall('[|].*?[|].*?[|].*?[|].*?[|](.*?)[|]', genres[0])
             except IndexError:
                 pass
             if not year:
-                year = re.findall('<FirstAired>([0-9]+)-', output)
+                year = findall('<FirstAired>([0-9]+)-', output)
             if not plotfull:
-                plotfull = re.findall('<Overview>(.*?)</Overview>', output, re.S)
-            backdrop = re.findall('<fanart>(.*?)</fanart>', output)
-            poster = re.findall('<poster>(.*?)</poster>', output)
+                plotfull = findall('<Overview>(.*?)</Overview>', output, reS)
+            backdrop = findall('<fanart>(.*?)</fanart>', output)
+            poster = findall('<poster>(.*?)</poster>', output)
             if self.newseries is True:
-                eposter = re.findall('<banner>(.*?)</banner>', output)
+                eposter = findall('<banner>(.*?)</banner>', output)
             if self.newseries is False:
                 try:
                     name = name[0]
@@ -8522,10 +8331,7 @@ class UpdateDatabase():
                         try:
                             headers = {'Accept': 'application/json'}
                             request = Request(url, headers=headers)
-                            if pythonVer == 2:
-                                output = urlopen(request).read()
-                            else:
-                                output = urlopen(request).read().decode('utf-8')
+                            output = urlopen(request).read().decode('utf-8')
                             fbackdrop = open(backdrop, 'w')
                             fbackdrop.write(output)
                             fbackdrop.close()
@@ -8601,7 +8407,7 @@ class UpdateDatabase():
                     movie = transMOVIE(self.name)
                     movie = sub('\\+[1-2][0-9][0-9][0-9]', '', movie)
                     # https://api.themoviedb.org/3/search/movie?api_key=dfc629f7ff6936a269f8c5cdb194c890&query=lion&language=it
-                    url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (str(tmdb_api_key), movie, self.language)
+                    url = 'https://api.themoviedb.org/3/search/movie?api_key=%s&query=%s&language=%s' % (tmdb_api_key, movie, self.language)
                     try:
                         self.getTMDbData(url, '0', False)
                     except RuntimeError:
@@ -8795,12 +8601,8 @@ class movieControlList(Screen):
         series = 'Series'
         if os.path.exists(config.plugins.moviebrowser.moviefolder.value):
             movieFolder = os.statvfs(config.plugins.moviebrowser.moviefolder.value)
-            try:
-                stat = movieFolder
-                freeSize = convert_size(float(stat.f_bfree * stat.f_bsize))
-            except Exception as e:
-                print(e)
-                freeSize = "-?-"
+            stat = movieFolder
+            freeSize = convert_size(float(stat.f_bfree * stat.f_bsize))
 
             if self.content == ':::Movie:Top:::':
                 title = '%s %s (%s %s)' % (str(totalMovies), movies, str(freeSize), free)
@@ -9182,7 +8984,6 @@ class movieControlList(Screen):
         else:
             index = self['list'].getSelectedIndex()
             self.close(index, True)
-        # return
 
 
 class movieDatabase(Screen):
@@ -9247,25 +9048,22 @@ class movieDatabase(Screen):
                 backdrop = str(default_backdrop)
                 media = '\n'
                 name = movie = date = runtime = rating = director = actors = year = country = " "
-                try:
-                    name = movieline[0]
-                    name = sub('[Ss][0]+[Ee]', 'Special ', name)
-                    movie = movieline[1]
-                    if movie == self.movie:
-                        index = count
-                    date = movieline[2]
-                    runtime = movieline[3]
-                    rating = movieline[4]
-                    director = movieline[5]
-                    actors = movieline[6]
-                    genres = movieline[7]
-                    year = movieline[8]
-                    country = movieline[9]
-                    poster = movieline[11]
-                    backdrop = movieline[12]
-                    media = movieline[15]
-                except IndexError:
-                    pass
+                name = movieline[0]
+                name = sub('[Ss][0]+[Ee]', 'Special ', name)
+                movie = movieline[1]
+                if movie == self.movie:
+                    index = count
+                date = movieline[2]
+                runtime = movieline[3]
+                rating = movieline[4]
+                director = movieline[5]
+                actors = movieline[6]
+                genres = movieline[7]
+                year = movieline[8]
+                country = movieline[9]
+                poster = movieline[11]
+                backdrop = movieline[12]
+                media = movieline[15]
                 self.namelist.append(name)
                 self.movielist.append(movie)
                 self.datelist.append(date)
@@ -9642,132 +9440,102 @@ class moviesList(Screen):
                 self.close(current, self.choice)
 
     def updateMovie(self, choice):
-        try:
-            c = self['list'].getSelectedIndex()
-            current = self.id[c]
-            self.choice = choice and choice[1]
-            if self.choice == 'movie':
-                if fileExists(self.poster1):
-                    os.remove(self.poster1)
-                if fileExists(self.poster2):
-                    os.remove(self.poster2)
-                if fileExists(self.poster3):
-                    os.remove(self.poster3)
-                if fileExists(self.poster4):
-                    os.remove(self.poster4)
-                self.close(current, self.choice)
-            elif self.choice == 'poster':
-                # https://api.themoviedb.org/3/movie/8587/images?api_key=dfc629f7ff6936a269f8c5cdb194c890
-                url = 'https://api.themoviedb.org/3/movie/%s/images?api_key=%s' % (current, str(tmdb_api_key))
-                self.getTMDbPosters(url)
-            elif self.choice == 'backdrop':
-                url = 'https://api.themoviedb.org/3/movie/%s/images?api_key=%s' % (current, str(tmdb_api_key))
-                self.getTMDbBackdrops(url)
-        except Exception as e:
-            print('error get ', str(e))
+        tmdb_api_key = config.plugins.moviebrowser.txtapi.value
+        thetvdb_api_key = config.plugins.moviebrowser.txttvdbapi.value
+        c = self['list'].getSelectedIndex()
+        current = self.id[c]
+        self.choice = choice and choice[1]
+        if self.choice == 'movie':
+            if fileExists(self.poster1):
+                os.remove(self.poster1)
+            if fileExists(self.poster2):
+                os.remove(self.poster2)
+            if fileExists(self.poster3):
+                os.remove(self.poster3)
+            if fileExists(self.poster4):
+                os.remove(self.poster4)
+            self.close(current, self.choice)
+        elif self.choice == 'poster':
+            url = 'https://api.themoviedb.org/3/movie/%s/images?api_key=%s' % (current, tmdb_api_key)
+            self.getTMDbPosters(url)
+        elif self.choice == 'backdrop':
+            url = 'https://api.themoviedb.org/3/movie/%s/images?api_key=%s' % (current, tmdb_api_key)
+            self.getTMDbBackdrops(url)
 
     def getTMDbPosters(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = re.sub('"backdrops".*?"posters"', '', output, flags=re.S)
-            output = sub('"file_path":"', '"file_path":"https://image.tmdb.org/t/p/w154', output)
-            self.banner = re.findall('"file_path":"(.*?)"', output)
-            self.makeList()
-        except Exception as e:
-            print('error get ', str(e))
+        output = sub('"backdrops".*?"posters"', '', output, flags=reS)
+        output = sub('"file_path":"', '"file_path":"https://image.tmdb.org/t/p/w154', output)
+        self.banner = findall('"file_path":"(.*?)"', output)
+        self.makeList()
 
     def getTMDbBackdrops(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nTMDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = output + 'FIN'
-            output = re.sub('"posters".*?FIN', '', output, flags=re.S)
-            output = sub('"file_path":"', '"file_path":"https://image.tmdb.org/t/p/w1280', output)
-            self.banner = re.findall('"file_path":"(.*?)"', output)
-            self.makeList()
-        except Exception as e:
-            print('error get ', str(e))
+        output = output + 'FIN'
+        output = sub('"posters".*?FIN', '', output, flags=reS)
+        output = sub('"file_path":"', '"file_path":"https://image.tmdb.org/t/p/w1280', output)
+        self.banner = findall('"file_path":"(.*?)"', output)
+        self.makeList()
 
     def updateSeries(self, choice):
-        try:
-            c = self['list'].getSelectedIndex()
-            current = self.id[c]
-            self.choice = choice and choice[1]
-            if self.choice == 'series':
-                if fileExists(self.poster1):
-                    os.remove(self.poster1)
-                if fileExists(self.poster2):
-                    os.remove(self.poster2)
-                if fileExists(self.poster3):
-                    os.remove(self.poster3)
-                if fileExists(self.poster4):
-                    os.remove(self.poster4)
-                self.close(current, self.choice)
-            elif self.choice == 'banner':
-                url = 'https://thetvdb.com/api/%s/series/%s/banners.xml' % (thetvdb_api_key, current)
-                self.getTVDbBanners(url)
-            elif self.choice == 'backdrop':
-                url = 'https://thetvdb.com/api/%s/series/%s/banners.xml' % (thetvdb_api_key, current)
-                self.getTVDbBackdrops(url)
-        except Exception as e:
-            print('error get ', str(e))
+        c = self['list'].getSelectedIndex()
+        current = self.id[c]
+        self.choice = choice and choice[1]
+        url = os.path.join("https://www.thetvdb.com/api", thetvdb_api_key, "series", current, "banners.xml")        
+        if self.choice == 'series':
+            if fileExists(self.poster1):
+                os.remove(self.poster1)
+            if fileExists(self.poster2):
+                os.remove(self.poster2)
+            if fileExists(self.poster3):
+                os.remove(self.poster3)
+            if fileExists(self.poster4):
+                os.remove(self.poster4)
+            self.close(current, self.choice)
+        elif self.choice == 'banner':
+            self.getTVDbBanners(url)
+        elif self.choice == 'backdrop':
+            self.getTVDbBackdrops(url)            
 
     def getTVDbBanners(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTheTVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nThe TVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = sub('<BannerPath>graphical', '<BannerPath>https://www.thetvdb.com/banners/graphical', output)
-            self.banner = re.findall('<BannerPath>(.*?)</BannerPath>\n\\s+<BannerType>series</BannerType>', output)
-            self.makeList()
-        except Exception as e:
-            print('error get ', str(e))
+        output = sub('<BannerPath>graphical', '<BannerPath>https://www.thetvdb.com/banners/graphical', output)
+        self.banner = findall('<BannerPath>(.*?)</BannerPath>\n\\s+<BannerType>series</BannerType>', output)
+        self.makeList()
 
     def getTVDbBackdrops(self, url):
+        headers = {'Accept': 'application/json'}
+        request = Request(url, headers=headers)
         try:
-            headers = {'Accept': 'application/json'}
-            request = Request(url, headers=headers)
-            try:
-                if pythonVer == 2:
-                    output = urlopen(request, timeout=10).read()
-                else:
-                    output = urlopen(request, timeout=10).read().decode('utf-8')
-            except Exception:
-                self.session.open(MessageBox, _('\nTheTVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
-                return
+            output = urlopen(request, timeout=10).read().decode('utf-8')
+        except Exception:
+            self.session.open(MessageBox, _('\nThe TVDb API Server is not reachable.'), MessageBox.TYPE_ERROR)
+            return
 
-            output = sub('<BannerPath>fanart', '<BannerPath>https://www.thetvdb.com/banners/fanart', output)
-            self.banner = re.findall('<BannerPath>(.*?)</BannerPath>\n\\s+<BannerType>fanart</BannerType>', output)
-            self.makeList()
-        except Exception as e:
-            print('error get ', str(e))
+        output = sub('<BannerPath>fanart', '<BannerPath>https://www.thetvdb.com/banners/fanart', output)
+        self.banner = findall('<BannerPath>(.*?)</BannerPath>\n\\s+<BannerType>fanart</BannerType>', output)
+        self.makeList()
 
     def makeList(self):
         self['list'].hide()
@@ -9826,132 +9594,54 @@ class moviesList(Screen):
             if self.first is True:
                 try:
                     c = self['list'].getSelectedIndex()
+                    self['list'].down()                    
                 except IndexError:
                     return
-
-                self['list'].down()
-                if c + 1 == len(self.titles):
-                    try:
-                        poster1 = self.poster[0]
-                        self.download(poster1, self.getPoster1)
-                        self['poster1'].show()
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[1]
-                        self.download(poster2, self.getPoster2)
-                        self['poster2'].show()
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[2]
-                        self.download(poster3, self.getPoster3)
-                        self['poster3'].show()
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[3]
-                        self.download(poster4, self.getPoster4)
-                        self['poster4'].show()
-                    except IndexError:
-                        self['poster4'].hide()
-
-                elif c % 4 == 3:
-                    try:
-                        poster1 = self.poster[c + 1]
-                        self.download(poster1, self.getPoster1)
-                        self['poster1'].show()
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[c + 2]
-                        self.download(poster2, self.getPoster2)
-                        self['poster2'].show()
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[c + 3]
-                        self.download(poster3, self.getPoster3)
-                        self['poster3'].show()
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[c + 4]
-                        self.download(poster4, self.getPoster4)
-                        self['poster4'].show()
-                    except IndexError:
-                        self['poster4'].hide()
-
             else:
                 try:
+                    self['piclist'].down()                
                     c = self['piclist'].getSelectedIndex()
                 except IndexError:
                     return
 
-                self['piclist'].down()
-                if c + 1 == len(self.titles):
-                    try:
-                        banner1 = self.banner[0]
-                        self.download(banner1, self.getBanner1)
-                        self['banner1'].show()
-                    except IndexError:
-                        self['banner1'].hide()
+            self['banner1'].hide()
+            self['banner2'].hide()
+            self['banner3'].hide()
+            self['banner4'].hide()                 
+            if c + 1 == len(self.titles):
+                try:
+                    poster1 = self.poster[0]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[1]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[2]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[3]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError:
+                    pass
 
-                    try:
-                        banner2 = self.banner[1]
-                        self.download(banner2, self.getBanner2)
-                        self['banner2'].show()
-                    except IndexError:
-                        self['banner2'].hide()
+            elif c % 4 == 3:
+                try:
+                    poster1 = self.poster[c + 1]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[c + 2]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[c + 3]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[c + 4]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError:
+                    pass
 
-                    try:
-                        banner3 = self.banner[2]
-                        self.download(banner3, self.getBanner3)
-                        self['banner3'].show()
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[3]
-                        self.download(banner4, self.getBanner4)
-                        self['banner4'].show()
-                    except IndexError:
-                        self['banner4'].hide()
-
-                elif c % 4 == 3:
-                    try:
-                        banner1 = self.banner[c + 1]
-                        self.download(banner1, self.getBanner1)
-                        self['banner1'].show()
-                    except IndexError:
-                        self['banner1'].hide()
-
-                    try:
-                        banner2 = self.banner[c + 2]
-                        self.download(banner2, self.getBanner2)
-                        self['banner2'].show()
-                    except IndexError:
-                        self['banner2'].hide()
-
-                    try:
-                        banner3 = self.banner[c + 3]
-                        self.download(banner3, self.getBanner3)
-                        self['banner3'].show()
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[c + 4]
-                        self.download(banner4, self.getBanner4)
-                        self['banner4'].show()
-                    except IndexError:
-                        self['banner4'].hide()
 
     def up(self):
         if self.ready is True:
@@ -9960,138 +9650,57 @@ class moviesList(Screen):
                     c = self['list'].getSelectedIndex()
                 except IndexError:
                     return
-
                 self['list'].up()
-                if c == 0:
-                    length = len(self.titles)
-                    d = length % 4
-                    if d == 0:
-                        d = 4
-                    try:
-                        poster1 = self.poster[length - d]
-                        self.download(poster1, self.getPoster1)
-                        self['poster1'].show()
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[length - d + 1]
-                        self.download(poster2, self.getPoster2)
-                        self['poster2'].show()
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[length - d + 2]
-                        self.download(poster3, self.getPoster3)
-                        self['poster3'].show()
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[length - d + 3]
-                        self.download(poster4, self.getPoster4)
-                        self['poster4'].show()
-                    except IndexError:
-                        self['poster4'].hide()
-
-                elif c % 4 == 0:
-                    try:
-                        poster1 = self.poster[c - 4]
-                        self.download(poster1, self.getPoster1)
-                        self['poster1'].show()
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[c - 3]
-                        self.download(poster2, self.getPoster2)
-                        self['poster2'].show()
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[c - 2]
-                        self.download(poster3, self.getPoster3)
-                        self['poster3'].show()
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[c - 1]
-                        self.download(poster4, self.getPoster4)
-                        self['poster4'].show()
-                    except IndexError:
-                        self['poster4'].hide()
 
             else:
                 try:
                     c = self['piclist'].getSelectedIndex()
                 except IndexError:
                     return
-
                 self['piclist'].up()
-                if c == 0:
-                    length = len(self.titles)
-                    d = length % 4
-                    if d == 0:
-                        d = 4
-                    try:
-                        banner1 = self.banner[length - d]
-                        self.download(banner1, self.getBanner1)
-                        self['banner1'].show()
-                    except IndexError:
-                        self['banner1'].hide()
 
-                    try:
-                        banner2 = self.banner[length - d + 1]
-                        self.download(banner2, self.getBanner2)
-                        self['banner2'].show()
-                    except IndexError:
-                        self['banner2'].hide()
+            self['banner1'].hide()
+            self['banner2'].hide()
+            self['banner3'].hide()
+            self['banner4'].hide()                 
+            if c == 0:
+                length = len(self.titles)
+                d = length % 4
+                if d == 0:
+                    d = 4
+                try:
+                    poster1 = self.poster[length - d]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[length - d + 1]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[length - d + 2]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[length - d + 3]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError:
+                    pass
 
-                    try:
-                        banner3 = self.banner[length - d + 2]
-                        self.download(banner3, self.getBanner3)
-                        self['banner3'].show()
-                    except IndexError:
-                        self['banner3'].hide()
+            elif c % 4 == 0:
+                try:
+                    poster1 = self.poster[c - 4]
+                    self.download(poster1, self.getPoster1)
+                    self['poster1'].show()
+                    poster2 = self.poster[c - 3]
+                    self.download(poster2, self.getPoster2)
+                    self['poster2'].show()
+                    poster3 = self.poster[c - 2]
+                    self.download(poster3, self.getPoster3)
+                    self['poster3'].show()
+                    poster4 = self.poster[c - 1]
+                    self.download(poster4, self.getPoster4)
+                    self['poster4'].show()
+                except IndexError:
+                    pass
 
-                    try:
-                        banner4 = self.banner[length - d + 3]
-                        self.download(banner4, self.getBanner4)
-                        self['banner4'].show()
-                    except IndexError:
-                        self['banner4'].hide()
-
-                elif c % 4 == 0:
-                    try:
-                        banner1 = self.banner[c - 4]
-                        self.download(banner1, self.getBanner1)
-                        self['banner1'].show()
-                    except IndexError:
-                        self['banner1'].hide()
-
-                    try:
-                        banner2 = self.banner[c - 3]
-                        self.download(banner2, self.getBanner2)
-                        self['banner2'].show()
-                    except IndexError:
-                        self['banner2'].hide()
-
-                    try:
-                        banner3 = self.banner[c - 2]
-                        self.download(banner3, self.getBanner3)
-                        self['banner3'].show()
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[c - 1]
-                        self.download(banner4, self.getBanner4)
-                        self['banner4'].show()
-                    except IndexError:
-                        self['banner4'].hide()
 
     def rightDown(self):
         if self.ready is True:
@@ -10100,228 +9709,38 @@ class moviesList(Screen):
                     c = self['list'].getSelectedIndex()
                 except IndexError:
                     return
-
                 self['list'].pageDown()
-                length = len(self.titles)
-                d = c % 4
-                e = length % 4
-                if e == 0:
-                    e = 4
-                if c + e >= length:
-                    pass
-                elif d == 0:
-                    try:
-                        poster1 = self.poster[c + 4]
-                        self.download(poster1, self.getPoster1)
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[c + 5]
-                        self.download(poster2, self.getPoster2)
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[c + 6]
-                        self.download(poster3, self.getPoster3)
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[c + 7]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        self['poster4'].hide()
-
-                elif d == 1:
-                    try:
-                        poster1 = self.poster[c + 3]
-                        self.download(poster1, self.getPoster1)
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[c + 4]
-                        self.download(poster2, self.getPoster2)
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[c + 5]
-                        self.download(poster3, self.getPoster3)
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[c + 6]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        self['poster4'].hide()
-
-                elif d == 2:
-                    try:
-                        poster1 = self.poster[c + 2]
-                        self.download(poster1, self.getPoster1)
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[c + 3]
-                        self.download(poster2, self.getPoster2)
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[c + 4]
-                        self.download(poster3, self.getPoster3)
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[c + 5]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        self['poster4'].hide()
-
-                elif d == 3:
-                    try:
-                        poster1 = self.poster[c + 1]
-                        self.download(poster1, self.getPoster1)
-                    except IndexError:
-                        self['poster1'].hide()
-
-                    try:
-                        poster2 = self.poster[c + 2]
-                        self.download(poster2, self.getPoster2)
-                    except IndexError:
-                        self['poster2'].hide()
-
-                    try:
-                        poster3 = self.poster[c + 3]
-                        self.download(poster3, self.getPoster3)
-                    except IndexError:
-                        self['poster3'].hide()
-
-                    try:
-                        poster4 = self.poster[c + 4]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        self['poster4'].hide()
 
             else:
                 try:
                     c = self['piclist'].getSelectedIndex()
                 except IndexError:
                     return
-
                 self['piclist'].pageDown()
-                length = len(self.titles)
-                d = c % 4
-                e = length % 4
-                if e == 0:
-                    e = 4
-                if c + e >= length:
-                    pass
-                elif d == 0:
-                    try:
-                        banner1 = self.banner[c + 4]
-                        self.download(banner1, self.getBanner1)
-                    except IndexError:
-                        self['banner1'].hide()
 
-                    try:
-                        banner2 = self.banner[c + 5]
-                        self.download(banner2, self.getBanner2)
-                    except IndexError:
-                        self['banner2'].hide()
+            length = len(self.titles)
+            d = c % 4
+            e = length % 4
+            if e == 0:
+                e = 4
+            if c + e >= length:
+                pass
+            self['banner1'].hide()
+            self['banner2'].hide()
+            self['banner3'].hide()
+            self['banner4'].hide()                                                                    
+            try:
+                banner1 = self.banner[c + (4-d)]
+                self.download(banner1, self.getBanner1)
+                banner2 = self.banner[c + (5-d)]
+                self.download(banner2, self.getBanner2)
+                banner3 = self.banner[c + (6-d)]
+                self.download(banner3, self.getBanner3)
+                banner4 = self.banner[c + (7-d)]
+                self.download(banner4, self.getBanner4)
+            except IndexError:
+                pass
 
-                    try:
-                        banner3 = self.banner[c + 6]
-                        self.download(banner3, self.getBanner3)
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[c + 7]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        self['banner4'].hide()
-
-                elif d == 1:
-                    try:
-                        banner1 = self.banner[c + 3]
-                        self.download(banner1, self.getBanner1)
-                    except IndexError:
-                        self['banner1'].hide()
-
-                    try:
-                        banner2 = self.banner[c + 4]
-                        self.download(banner2, self.getBanner2)
-                    except IndexError:
-                        self['banner2'].hide()
-
-                    try:
-                        banner3 = self.banner[c + 5]
-                        self.download(banner3, self.getBanner3)
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[c + 6]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        self['banner4'].hide()
-
-                elif d == 2:
-                    try:
-                        banner1 = self.banner[c + 2]
-                        self.download(banner1, self.getBanner1)
-                    except IndexError:
-                        self['banner1'].hide()
-
-                    try:
-                        banner2 = self.banner[c + 3]
-                        self.download(banner2, self.getBanner2)
-                    except IndexError:
-                        self['banner2'].hide()
-
-                    try:
-                        banner3 = self.banner[c + 4]
-                        self.download(banner3, self.getBanner3)
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[c + 5]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        self['banner4'].hide()
-
-                elif d == 3:
-                    try:
-                        banner1 = self.banner[c + 1]
-                        self.download(banner1, self.getBanner1)
-                    except IndexError:
-                        self['banner1'].hide()
-
-                    try:
-                        banner2 = self.banner[c + 2]
-                        self.download(banner2, self.getBanner2)
-                    except IndexError:
-                        self['banner2'].hide()
-
-                    try:
-                        banner3 = self.banner[c + 3]
-                        self.download(banner3, self.getBanner3)
-                    except IndexError:
-                        self['banner3'].hide()
-
-                    try:
-                        banner4 = self.banner[c + 4]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        self['banner4'].hide()
 
     def leftUp(self):
         if self.ready is True:
@@ -10330,133 +9749,34 @@ class moviesList(Screen):
                     c = self['list'].getSelectedIndex()
                 except IndexError:
                     return
-
                 self['list'].pageUp()
-                d = c % 4
-                if c < 4:
-                    pass
-                elif d == 0:
-                    try:
-                        poster1 = self.poster[c - 4]
-                        self.download(poster1, self.getPoster1)
-                        poster2 = self.poster[c - 3]
-                        self.download(poster2, self.getPoster2)
-                        poster3 = self.poster[c - 2]
-                        self.download(poster3, self.getPoster3)
-                        poster4 = self.poster[c - 1]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        pass
-
-                elif d == 1:
-                    try:
-                        poster1 = self.poster[c - 5]
-                        self.download(poster1, self.getPoster1)
-                        poster2 = self.poster[c - 4]
-                        self.download(poster2, self.getPoster2)
-                        poster3 = self.poster[c - 3]
-                        self.download(poster3, self.getPoster3)
-                        poster4 = self.poster[c - 2]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        pass
-
-                elif d == 2:
-                    try:
-                        poster1 = self.poster[c - 6]
-                        self.download(poster1, self.getPoster1)
-                        poster2 = self.poster[c - 5]
-                        self.download(poster2, self.getPoster2)
-                        poster3 = self.poster[c - 4]
-                        self.download(poster3, self.getPoster3)
-                        poster4 = self.poster[c - 3]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        pass
-
-                elif d == 3:
-                    try:
-                        poster1 = self.poster[c - 7]
-                        self.download(poster1, self.getPoster1)
-                        poster2 = self.poster[c - 6]
-                        self.download(poster2, self.getPoster2)
-                        poster3 = self.poster[c - 5]
-                        self.download(poster3, self.getPoster3)
-                        poster4 = self.poster[c - 4]
-                        self.download(poster4, self.getPoster4)
-                    except IndexError:
-                        pass
-
-                self['poster1'].show()
-                self['poster2'].show()
-                self['poster3'].show()
-                self['poster4'].show()
             else:
                 try:
                     c = self['piclist'].getSelectedIndex()
                 except IndexError:
                     return
-
                 self['piclist'].pageUp()
-                d = c % 4
-                if c < 4:
-                    pass
-                elif d == 0:
-                    try:
-                        banner1 = self.banner[c - 4]
-                        self.download(banner1, self.getBanner1)
-                        banner2 = self.banner[c - 3]
-                        self.download(banner2, self.getBanner2)
-                        banner3 = self.banner[c - 2]
-                        self.download(banner3, self.getBanner3)
-                        banner4 = self.banner[c - 1]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        pass
+                
+            d = c % 4
+            if c < 4:
+                pass
+            try:
+                poster1 = self.poster[c - (4+d)]
+                self.download(poster1, self.getPoster1)
+                poster2 = self.poster[c - (3+d)]
+                self.download(poster2, self.getPoster2)
+                poster3 = self.poster[c - (2+d)]
+                self.download(poster3, self.getPoster3)
+                poster4 = self.poster[c - (1+d)]
+                self.download(poster4, self.getPoster4)
+            except IndexError:
+                pass
 
-                elif d == 1:
-                    try:
-                        banner1 = self.banner[c - 5]
-                        self.download(banner1, self.getBanner1)
-                        banner2 = self.banner[c - 4]
-                        self.download(banner2, self.getBanner2)
-                        banner3 = self.banner[c - 3]
-                        self.download(banner3, self.getBanner3)
-                        banner4 = self.banner[c - 2]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        pass
+ #           self['poster1'].show()
+ #           self['poster2'].show()
+ #           self['poster3'].show()
+ #           self['poster4'].show()
 
-                elif d == 2:
-                    try:
-                        banner1 = self.banner[c - 6]
-                        self.download(banner1, self.getBanner1)
-                        banner2 = self.banner[c - 5]
-                        self.download(banner2, self.getBanner2)
-                        banner3 = self.banner[c - 4]
-                        self.download(banner3, self.getBanner3)
-                        banner4 = self.banner[c - 3]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        pass
-
-                elif d == 3:
-                    try:
-                        banner1 = self.banner[c - 7]
-                        self.download(banner1, self.getBanner1)
-                        banner2 = self.banner[c - 6]
-                        self.download(banner2, self.getBanner2)
-                        banner3 = self.banner[c - 5]
-                        self.download(banner3, self.getBanner3)
-                        banner4 = self.banner[c - 4]
-                        self.download(banner4, self.getBanner4)
-                    except IndexError:
-                        pass
-
-                self['banner1'].show()
-                self['banner2'].show()
-                self['banner3'].show()
-                self['banner4'].show()
 
     def gotoEnd(self):
         if self.ready is True:
@@ -10571,8 +9891,6 @@ class moviesList(Screen):
         return
 
     def download(self, link, name):
-        if pythonVer == 3:
-            link = link.encode()
         callInThread(threadGetPage, url=link, file=None, success=name, fail=self.downloadError)
 
     def downloadError(self, output):
@@ -10606,7 +9924,6 @@ class moviesList(Screen):
         if fileExists(self.banner4):
             os.remove(self.banner4)
         self.close(None, None)
-        # return
 
 
 class filterList(Screen):
@@ -10732,7 +10049,6 @@ class filterList(Screen):
 
     def exit(self):
         self.close(None)
-        # return
 
 
 class filterSeasonList(Screen):
@@ -10838,7 +10154,6 @@ class filterSeasonList(Screen):
 
     def exit(self):
         self.close(None)
-        # return
 
 
 class getABC(Screen):
@@ -11726,7 +11041,6 @@ class movieBrowserConfig(ConfigListScreen, Screen):
             for x in self["config"].list:
                 x[1].cancel()
             self.exit()
-        # return
 
     def exit(self):
         if config.plugins.moviebrowser.filter.value == ':::Movie:Top:::':
