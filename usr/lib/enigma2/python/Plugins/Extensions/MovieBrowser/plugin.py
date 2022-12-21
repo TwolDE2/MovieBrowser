@@ -2789,6 +2789,86 @@ class movieBrowserMetrix(Screen):
 
             self.close()
 
+    def sortDatabase(self):
+        f = open(self.database, 'r')
+        series = ''
+        for line in f:
+            if ':::Series:::' in line:
+                series = series + line
+
+        f.close()
+        fseries = open(self.database + '.series', 'w')
+        fseries.write(series)
+        fseries.close()
+        fseries = open(self.database + '.series', 'r')
+        series = fseries.readlines()
+        series.sort(key=lambda line: line.split(':::')[0])
+        fseries.close()
+        fseries = open(self.database + '.series', 'w')
+        fseries.writelines(series)
+        fseries.close()
+        f = open(self.database, 'r')
+        movies = ''
+        for line in f:
+            if ':::Series:::' not in line:
+                movies = movies + line
+
+        f.close()
+        fmovies = open(self.database + '.movies', 'w')
+        fmovies.write(movies)
+        fmovies.close()
+        fmovies = open(self.database + '.movies', 'r')
+        lines = fmovies.readlines()
+        fmovies.close()
+        self.sortorder = config.plugins.moviebrowser.sortorder.value
+        try:
+            if self.sortorder == 'name':
+                lines.sort(key=lambda line: line.split(':::')[0].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'name_reverse':
+                lines.sort(key=lambda line: line.split(':::')[0].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'rating':
+                lines.sort(key=lambda line: line.split(':::')[4])
+            elif self.sortorder == 'rating_reverse':
+                lines.sort(key=lambda line: line.split(':::')[4], reverse=True)
+            elif self.sortorder == 'year':
+                lines.sort(key=lambda line: line.split(':::')[8])
+            elif self.sortorder == 'year_reverse':
+                lines.sort(key=lambda line: line.split(':::')[8], reverse=True)
+            elif self.sortorder == 'date':
+                lines.sort(key=lambda line: line.split(':::')[2])
+            elif self.sortorder == 'date_reverse':
+                lines.sort(key=lambda line: line.split(':::')[2], reverse=True)
+            elif self.sortorder == 'folder':
+                lines.sort(key=lambda line: line.split(':::')[1])
+            elif self.sortorder == 'folder_reverse':
+                lines.sort(key=lambda line: line.split(':::')[1], reverse=True)
+            elif self.sortorder == 'runtime':
+                lines.sort(key=lambda line: int(line.split(':::')[3].replace(' min', '')))
+            elif self.sortorder == 'runtime_reverse':
+                lines.sort(key=lambda line: int(line.split(':::')[3].replace(' min', '')), reverse=True)
+        except IndexError:
+            pass
+        except ValueError:
+            if self.language == '&language=de':
+                self.session.open(MessageBox, '\nDatenbank Fehler: Eintrag ohne Laufzeit', MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nDatabase Error: Entry without runtime', MessageBox.TYPE_ERROR)
+
+        f = open(self.database + '.movies', 'w')
+        f.writelines(lines)
+        f.close()
+        files = [self.database + '.movies', self.database + '.series']
+        with open(self.database + '.sorted', 'w') as outfile:
+            for name in files:
+                with open(name) as infile:
+                    outfile.write(infile.read())
+
+        if fileExists(self.database + '.movies'):
+            os.remove(self.database + '.movies')
+        if fileExists(self.database + '.series'):
+            os.remove(self.database + '.series')
+        os.rename(self.database + '.sorted', self.database)
+
 
 class movieBrowserBackdrop(Screen):
 
@@ -4923,6 +5003,86 @@ class movieBrowserBackdrop(Screen):
 
             f.close()
             self.makeMovies(self.filter)
+
+    def sortDatabase(self):
+        f = open(self.database, 'r')
+        series = ''
+        for line in f:
+            if ':::Series:::' in line:
+                series = series + line
+
+        f.close()
+        fseries = open(self.database + '.series', 'w')
+        fseries.write(series)
+        fseries.close()
+        fseries = open(self.database + '.series', 'r')
+        series = fseries.readlines()
+        series.sort(key=lambda line: line.split(':::')[0])
+        fseries.close()
+        fseries = open(self.database + '.series', 'w')
+        fseries.writelines(series)
+        fseries.close()
+        f = open(self.database, 'r')
+        movies = ''
+        for line in f:
+            if ':::Series:::' not in line:
+                movies = movies + line
+
+        f.close()
+        fmovies = open(self.database + '.movies', 'w')
+        fmovies.write(movies)
+        fmovies.close()
+        fmovies = open(self.database + '.movies', 'r')
+        lines = fmovies.readlines()
+        fmovies.close()
+        self.sortorder = config.plugins.moviebrowser.sortorder.value
+        try:
+            if self.sortorder == 'name':
+                lines.sort(key=lambda line: line.split(':::')[0].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower())
+            elif self.sortorder == 'name_reverse':
+                lines.sort(key=lambda line: line.split(':::')[0].replace('Der ', '').replace('Die ', '').replace('Das ', '').replace('The ', '').lower(), reverse=True)
+            elif self.sortorder == 'rating':
+                lines.sort(key=lambda line: line.split(':::')[4])
+            elif self.sortorder == 'rating_reverse':
+                lines.sort(key=lambda line: line.split(':::')[4], reverse=True)
+            elif self.sortorder == 'year':
+                lines.sort(key=lambda line: line.split(':::')[8])
+            elif self.sortorder == 'year_reverse':
+                lines.sort(key=lambda line: line.split(':::')[8], reverse=True)
+            elif self.sortorder == 'date':
+                lines.sort(key=lambda line: line.split(':::')[2])
+            elif self.sortorder == 'date_reverse':
+                lines.sort(key=lambda line: line.split(':::')[2], reverse=True)
+            elif self.sortorder == 'folder':
+                lines.sort(key=lambda line: line.split(':::')[1])
+            elif self.sortorder == 'folder_reverse':
+                lines.sort(key=lambda line: line.split(':::')[1], reverse=True)
+            elif self.sortorder == 'runtime':
+                lines.sort(key=lambda line: int(line.split(':::')[3].replace(' min', '')))
+            elif self.sortorder == 'runtime_reverse':
+                lines.sort(key=lambda line: int(line.split(':::')[3].replace(' min', '')), reverse=True)
+        except IndexError:
+            pass
+        except ValueError:
+            if self.language == '&language=de':
+                self.session.open(MessageBox, '\nDatenbank Fehler: Eintrag ohne Laufzeit', MessageBox.TYPE_ERROR)
+            else:
+                self.session.open(MessageBox, '\nDatabase Error: Entry without runtime', MessageBox.TYPE_ERROR)
+
+        f = open(self.database + '.movies', 'w')
+        f.writelines(lines)
+        f.close()
+        files = [self.database + '.movies', self.database + '.series']
+        with open(self.database + '.sorted', 'w') as outfile:
+            for name in files:
+                with open(name) as infile:
+                    outfile.write(infile.read())
+
+        if fileExists(self.database + '.movies'):
+            os.remove(self.database + '.movies')
+        if fileExists(self.database + '.series'):
+            os.remove(self.database + '.series')
+        os.rename(self.database + '.sorted', self.database)
 
 
     def getIndex(self, list):
