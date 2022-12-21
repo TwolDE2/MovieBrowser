@@ -116,7 +116,10 @@ default_backdrop = '%spic/setup/default_backdrop.png' % skin_directory
 default_folder = '%spic/browser/default_folder.png' % skin_directory
 default_poster = '%spic/browser/default_poster.png' % skin_directory
 default_banner = '%spic/browser/default_banner.png' % skin_directory
-# default_backdropm1v = '%spic/browser/default_backdrop.m1v' % skin_directory
+default_backdropm1v = '%spic/browser/default_backdrop.m1v' % skin_directory
+infoBackPNG = '%spic/browser/info_back.png' % skin_directory
+infosmallBackPNG = '%spic/browser/info_small_back.png' % skin_directory
+
 wiki_png = '%spic/browser/wiki.png' % skin_directory
 folders = os.listdir(skin_directory)
 if "pic" in folders:
@@ -154,25 +157,24 @@ class ItemList(MenuList):
             # self.l.setFont(0, gFont('Regular', textfont))
 
 
-# def getMountChoices():
-    # choices = []
-    # for p in harddiskmanager.getMountedPartitions():
-        # if os.path.exists(p.mountpoint):
-            # d = os.path.normpath(p.mountpoint)
-            # if p.mountpoint != "/":
-                # choices.append((p.mountpoint, d))
-    # choices.sort()
-    # return choices
 
+def getMountChoices():
+    choices = []
+    for p in harddiskmanager.getMountedPartitions():
+        if os.path.exists(p.mountpoint):
+            d = os.path.normpath(p.mountpoint)
+            if p.mountpoint != "/":
+                choices.append((p.mountpoint, d))
+    choices.sort()
+    return choices
 
-# def getMountDefault(choices):
-    # choices = {x[1]: x[0] for x in choices}
-    # default = choices.get("/media/hdd") or choices.get("/media/usb")
-    # # print("[MovieBrowser][getMountDefault] default, choices", default, "   ", choices)
-    # return default
+def getMountDefault(choices):
+    choices = {x[1]: x[0] for x in choices}
+    default = choices.get("/media/hdd") or choices.get("/media/usb")
+#    print("[MovieBrowser][getMountDefault] default, choices", default, "   ", choices)	
+    return default
 
-
-# choices = getMountChoices()
+choices = getMountChoices()
 config.plugins.moviebrowser = ConfigSubsection()
 lang = language.getLanguage()[:2]
 config.plugins.moviebrowser.language = ConfigSelection(default=lang, choices=[
@@ -200,33 +202,26 @@ config.plugins.moviebrowser.sortorder = ConfigSelection(default='date_reverse', 
 ])
 config.plugins.moviebrowser.backdrops = ConfigSelection(default='auto', choices=[('info', _('Info Button')), ('auto', _('Automatic')), ('hide', _('Hide'))])
 config.plugins.moviebrowser.download = ConfigSelection(default='update', choices=[('access', _('On First Access')), ('update', _('On Database Update'))])
-# config.plugins.moviebrowser.m1v = ConfigOnOff(default=False)  # ConfigSelection(default='no', choices=[('no', _('No')), ('yes', _('Yes'))])
-# if config.plugins.moviebrowser.m1v.value:
-    # config.plugins.moviebrowser.showtv = ConfigSelection(default='hide', choices=[('show', _('Show')), ('hide', _('Hide'))])
-# else:
-    # config.plugins.moviebrowser.showtv = ConfigSelection(default='show', choices=[('show', _('Show')), ('hide', _('Hide'))])
-config.plugins.moviebrowser.showtv = ConfigSelection(default='hide', choices=[('show', _('Show')), ('hide', _('Hide'))])
-    
+config.plugins.moviebrowser.m1v = ConfigOnOff(default=False)  # ConfigSelection(default='no', choices=[('no', _('No')), ('yes', _('Yes'))])
+if config.plugins.moviebrowser.m1v.value is True:
+    config.plugins.moviebrowser.showtv = ConfigSelection(default='hide', choices=[('show', _('Show')), ('hide', _('Hide'))])
+else:
+    config.plugins.moviebrowser.showtv = ConfigSelection(default='show', choices=[('show', _('Show')), ('hide', _('Hide'))])
 config.plugins.moviebrowser.showswitch = ConfigOnOff(default=False)  # ConfigSelection(default='no', choices=[('no', _('No')), ('yes', _('Yes'))])
 config.plugins.moviebrowser.showmenu = ConfigOnOff(default=False)  # choices=[('no', _('No')), ('yes', _('Yes'))])
 config.plugins.moviebrowser.videobutton = ConfigOnOff(default=False)  # choices=[('no', _('No')), ('yes', _('Yes'))])
 config.plugins.moviebrowser.lastmovie = ConfigSelection(default='yes', choices=[('yes', _('Yes')), ('no', _('No')), ('folder', _('Folder Selection'))])
 config.plugins.moviebrowser.lastfilter = ConfigOnOff(default=False)  # choices=[('no', _('No')), ('yes', _('Yes'))])
 config.plugins.moviebrowser.showfolder = ConfigOnOff(default=False)  # choices=[('no', _('No')), ('yes', _('Yes'))])
-
 config.plugins.moviebrowser.skin = ConfigSelection(default='default', choices=folders)
 skin_path = "%s%s/" % (skin_directory, config.plugins.moviebrowser.skin.value)
 config.plugins.moviebrowser.plotfull = ConfigSelection(default='show', choices=[('hide', _('Info Button')), ('show', _('Automatic'))])
-
 config.plugins.moviebrowser.timerupdate = ConfigEnableDisable(default=False)  # ConfigSelection(default='no', choices=[('no', _('No')), ('yes', _('Yes'))])
-# if config.plugins.moviebrowser.timerupdate:
 config.plugins.moviebrowser.timer = ConfigClock(default=6 * 3600)
 config.plugins.moviebrowser.hideupdate = ConfigOnOff(default=False)  # ConfigSelection(default='yes', choices=[('yes', _('Yes')), ('no', _('No'))])
-
 config.plugins.moviebrowser.reset = ConfigYesNo(default=False)  # ConfigSelection(default='no', choices=[('no', _('No')), ('yes', _('Yes'))])
 config.plugins.moviebrowser.style = ConfigSelection(default='metrix', choices=[('metrix', 'Metrix'), ('backdrop', 'Backdrop'), ('posterwall', 'Posterwall')])
 config.plugins.moviebrowser.seriesstyle = ConfigSelection(default='metrix', choices=[('metrix', 'Metrix'), ('backdrop', 'Backdrop'), ('posterwall', 'Posterwall')])
-
 config.plugins.moviebrowser.api = NoSave(ConfigSelection(['-> Ok']))
 config.plugins.moviebrowser.txtapi = ConfigText(default=tmdb_api_key, visible_width=60, fixed_size=False)
 config.plugins.moviebrowser.tvdbapi = NoSave(ConfigSelection(['-> Ok']))
